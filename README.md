@@ -1,4 +1,4 @@
-# AI Event Videos
+# AI Event Videos from Bee Maps
 
 A Next.js web application for browsing, filtering, and analyzing AI-detected driving events videos captured by Hivemapper dashcams. 
 View event videos, inspect speed profiles, explore GNSS/IMU sensor data, and see nearby map features — all on an interactive map.
@@ -65,7 +65,7 @@ Used server-side to extract video frames and generate thumbnails. Must be instal
 
 - Node.js 18+
 - FFmpeg installed and available on `PATH`
-- A [BeeMaps API key](https://beemaps.com)
+- A [Bee Maps API key](https://beemaps.com/developers)
 - A [Mapbox access token](https://account.mapbox.com)
 
 ### Setup
@@ -131,6 +131,7 @@ src/
 
 ## Tech Stack
 
+- **Data API**: [Bee Maps](https://docs.beemaps.com/platform/road-intelligence-api)
 - **Framework**: [Next.js](https://nextjs.org) 16 (App Router)
 - **Language**: TypeScript
 - **Styling**: [Tailwind CSS](https://tailwindcss.com) 4
