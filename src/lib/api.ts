@@ -1,0 +1,120 @@
+import { AIEventsRequest, AIEventsResponse } from "@/types/events";
+
+const API_KEY_STORAGE_KEY = "beemaps-api-key";
+const MAPBOX_TOKEN_STORAGE_KEY = "mapbox-token";
+const CAMERA_INTRINSICS_STORAGE_KEY = "camera-intrinsics";
+
+export interface CameraIntrinsics {
+  focal: number;
+  k1: number;
+  k2: number;
+  k3?: number;
+  k4?: number;
+  k5?: number;
+  k6?: number;
+  p1?: number;
+  p2?: number;
+  s1?: number;
+  s2?: number;
+  s3?: number;
+  s4?: number;
+  tauX?: number;
+  tauY?: number;
+}
+
+export interface DevicesResponse {
+  hdc: CameraIntrinsics;
+  "hdc-s": CameraIntrinsics;
+  bee: CameraIntrinsics;
+}
+
+// Calculate horizontal FOV from normalized focal length
+export function calculateFOV(focal: number): number {
+  return 2 * Math.atan(0.5 / focal) * (180 / Math.PI);
+}
+
+export function getApiKey(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(API_KEY_STORAGE_KEY);
+}
+
+export function setApiKey(key: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(API_KEY_STORAGE_KEY, key);
+}
+
+export function clearApiKey(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+}
+
+export function getMapboxToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(MAPBOX_TOKEN_STORAGE_KEY) || process.env.NEXT_PUBLIC_MAPBOX_TOKEN || null;
+}
+
+export function setMapboxToken(token: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(MAPBOX_TOKEN_STORAGE_KEY, token);
+}
+
+export function clearMapboxToken(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(MAPBOX_TOKEN_STORAGE_KEY);
+}
+
+export function getCameraIntrinsics(): DevicesResponse | null {
+  if (typeof window === "undefined") return null;
+  const stored = localStorage.getItem(CAMERA_INTRINSICS_STORAGE_KEY);
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return null;
+  }
+}
+
+export function setCameraIntrinsics(data: DevicesResponse): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(CAMERA_INTRINSICS_STORAGE_KEY, JSON.stringify(data));
+}
+
+export function clearCameraIntrinsics(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(CAMERA_INTRINSICS_STORAGE_KEY);
+}
+
+export async function fetchCameraIntrinsics(): Promise<DevicesResponse> {
+  const response = await fetch("https://beemaps.com/api/developer/devices");
+  if (!response.ok) {
+    throw new Error(`Failed to fetch camera intrinsics: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchEvents(
+  request: AIEventsRequest,
+  apiKey?: string
+): Promise<AIEventsResponse> {
+  const key = apiKey || getApiKey();
+
+  if (!key) {
+    throw new Error("API key is required. Please configure your API key in settings.");
+  }
+
+  const response = await fetch("/api/events", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: key,
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || `API error: ${response.status}`);
+  }
+
+  return response.json();
+}
