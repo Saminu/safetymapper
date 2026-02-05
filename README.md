@@ -34,7 +34,7 @@ This application uses the following external APIs:
 
 ### BeeMaps API
 
-Base URL: `[https://beemaps.com/api/developer](https://beemaps.com/api/developer/docs#tag/aievents/POST/aievents/search)`
+Base URL: [Bee Maps AI Event Videos](https://beemaps.com/api/developer/docs#tag/aievents/POST/aievents/search)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
