@@ -32,9 +32,9 @@ View event videos, inspect speed profiles, explore GNSS/IMU sensor data, and see
 
 This application uses the following external APIs:
 
-### BeeMaps API
+### Bee Maps API
 
-Base URL: [Bee Maps AI Event Videos](https://beemaps.com/api/developer/docs#tag/aievents/POST/aievents/search)
+API Specs: [Bee Maps AI Event Videos](https://beemaps.com/api/developer/docs#tag/aievents/POST/aievents/search)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
