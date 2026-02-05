@@ -3,6 +3,8 @@
 A Next.js web application for browsing, filtering, and analyzing AI-detected driving events videos captured by Hivemapper dashcams. 
 View event videos, inspect speed profiles, explore GNSS/IMU sensor data, and see nearby map features — all on an interactive map.
 
+![AI Event Video Detail](ai-event-video-detail.png)
+
 ## Features
 
 - **Event Gallery** — Browse events in a grid view with video thumbnails, or switch to an interactive map view
