@@ -183,3 +183,6 @@ src/
 - **UI Components**: [shadcn/ui](https://ui.shadcn.com) + [Radix UI](https://www.radix-ui.com)
 - **Maps**: [Mapbox GL JS](https://docs.mapbox.com/mapbox-gl-js/)
 - **Icons**: [Lucide React](https://lucide.dev)
+
+## Blog Post
+Read the [blog post](https://beemaps.com/blog/ai-event-videos-real-world-driving-incidents-as-training-data) about this app.
