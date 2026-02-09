@@ -1,0 +1,2 @@
+# This directory stores uploaded session videos
+# In production, use cloud storage (S3, R2, etc.)

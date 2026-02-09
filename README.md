@@ -1,7 +1,8 @@
-# Using the AI Event Videos API from Bee Maps
+# Lagos Safety Map - MVP Platform
 
-This is a web application for browsing, filtering, and analyzing AI-detected driving events videos captured by Hivemapper dashcams. 
-View event videos, inspect speed profiles, explore GNSS/IMU sensor data, and see nearby map features — all on an interactive map.
+A mobile-first platform for drivers in Lagos to provide dashcam data using their phones. Transform any vehicle into a safety mapping node and earn tokens while making Lagos streets safer.
+
+> **Note**: This repo also includes the original AI Event Videos functionality from Bee Maps. See `LAGOS_SAFETY_MAP.md` for the new Safety Map features, or continue reading below for the original features.
 
 
 
