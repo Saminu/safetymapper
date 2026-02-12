@@ -76,8 +76,8 @@ export default function OnboardingPage() {
       // Sync to server
       await syncToServer();
       
-      // Redirect to live mapping page
-      router.push("/live-map");
+      // Redirect to dashboard where they can start mapping
+      router.push("/dashboard");
     } catch (error) {
       console.error("Registration error:", error);
       alert("Registration failed. Please try again.");
@@ -139,7 +139,7 @@ export default function OnboardingPage() {
               {ONBOARDING_STEPS.map((item, index) => (
                 <Card key={index} className="p-6">
                   <div className="flex gap-6">
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center">
                         <item.icon className="w-8 h-8 text-orange-500" />
                       </div>

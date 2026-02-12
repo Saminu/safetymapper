@@ -18,6 +18,7 @@ import {
   Wallet,
   ArrowRight,
 } from "lucide-react";
+import { UserNav } from "@/components/layout/user-nav";
 
 function HomeContent() {
   const router = useRouter();
@@ -93,12 +94,7 @@ function HomeContent() {
                 >
                   VIEW RECORDINGS
                 </Button>
-                <Button
-                  onClick={() => router.push("/onboarding")}
-                  className="bg-orange-500 hover:bg-orange-600"
-                >
-                  START MAPPING
-                </Button>
+                <UserNav className="text-white" />
               </div>
             </div>
           </div>

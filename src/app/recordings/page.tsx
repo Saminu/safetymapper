@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -113,7 +114,7 @@ export default function RecordingsPage() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold">
-              SAFETY<span className="text-orange-500">MAP</span>
+             <Link href="/">  SAFETY<span className="text-orange-500">MAP</span> </Link>
             </h1>
             <span className="text-sm text-muted-foreground">RECORDINGS</span>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
@@ -18,10 +19,13 @@ import {
 } from "lucide-react";
 import { getAllMappers, getAllSessions, syncToServer } from "@/lib/storage";
 
+import { UserNav } from "@/components/layout/user-nav";
+
 export default function DashboardPage() {
   const router = useRouter();
   const [view, setView] = useState<"map" | "mappers">("map");
   const [mapView, setMapView] = useState<"live" | "all">("live");
+  const [currentMapperId, setCurrentMapperId] = useState<string | null>(null);
   const [mappers, setMappers] = useState<Mapper[]>([]);
   const [sessions, setSessions] = useState<MappingSession[]>([]);
   const [allSessions, setAllSessions] = useState<MappingSession[]>([]);
@@ -111,6 +115,24 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    // Check for mapper ID
+    const id = localStorage.getItem("mapperId");
+    setCurrentMapperId(id);
+    
+    const handleStorage = () => {
+      setCurrentMapperId(localStorage.getItem("mapperId"));
+    };
+    
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("mapper-login", handleStorage);
+    
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("mapper-login", handleStorage);
+    };
+  }, []);
+
   const liveMappers = mappers.filter((m) => m.isLive);
   const completedSessions = allSessions.filter((s) => s.status === "COMPLETED");
   
@@ -124,7 +146,7 @@ export default function DashboardPage() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold">
-              SAFETY<span className="text-orange-500">MAP</span>
+              <Link href="/">SAFETY<span className="text-orange-500">MAP</span></Link>
             </h1>
             <span className="text-sm text-muted-foreground">
               REAL-TIME NETWORK
@@ -155,12 +177,15 @@ export default function DashboardPage() {
             >
               View Recordings
             </Button>
-            <Button
-              onClick={() => router.push("/onboarding")}
-              className="bg-orange-500 hover:bg-orange-600"
-            >
-              JOIN NETWORK AS MAPPER
-            </Button>
+            {currentMapperId && (
+              <Button
+                onClick={() => router.push("/live-map")}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                START MAPPING
+              </Button>
+            )}
+            <UserNav />
           </div>
         </div>
       </div>
