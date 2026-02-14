@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { Mapper, MappingSession } from "@/types/mapper";
+import { Mapper, MappingSession, MapEvent } from "@/types/mapper";
 
 const LAGOS_CENTER: [number, number] = [3.3792, 6.5244]; // [lon, lat]
 
@@ -11,13 +11,16 @@ interface MapperMapProps {
   mappers: Mapper[];
   sessions: MappingSession[];
   onMapperClick?: (mapper: Mapper) => void;
+  events?: MapEvent[];
   className?: string;
 }
 
 export function MapperMap({
   mappers,
   sessions,
+
   onMapperClick,
+  events = [],
   className = "",
 }: MapperMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -240,11 +243,97 @@ export function MapperMap({
           });
         }
       });
-  }, [mapLoaded, mappers, sessions, onMapperClick]);
+
+
+    // Add event markers
+    const existingEventMarkers = document.querySelectorAll(".event-marker");
+    existingEventMarkers.forEach((marker) => marker.remove());
+
+    events.forEach((event) => {
+      const el = document.createElement("div");
+      el.className = "event-marker";
+      
+      let icon = "⚠️";
+      let color = "#ef4444"; // red-500
+      
+      switch(event.type) {
+        case "ACCIDENT":
+          icon = "💥";
+          color = "#ef4444";
+          break;
+        case "TRAFFIC":
+          icon = "🚦";
+          color = "#f59e0b"; // amber-500
+          break;
+        case "POLICE":
+          icon = "👮";
+          color = "#3b82f6"; // blue-500
+          break;
+        case "HAZARD":
+          icon = "⚠️";
+          color = "#eab308"; // yellow-500
+          break;
+        case "ROAD_WORK":
+          icon = "🚧";
+          color = "#f97316"; // orange-500
+          break;
+        case "SOS":
+          icon = "🆘";
+          color = "#dc2626"; // red-600
+          break;
+      }
+
+      el.style.cssText = `
+        width: 32px;
+        height: 32px;
+        background-color: ${color};
+        border: 2px solid #fff;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        z-index: 10;
+      `;
+      
+      el.innerHTML = icon;
+
+      const popup = new mapboxgl.Popup({
+        offset: 25,
+        closeButton: false,
+        className: "event-popup",
+      }).setHTML(`
+        <div style="padding: 8px; min-width: 180px;">
+          <div style="font-weight: bold; margin-bottom: 4px; color: ${color};">
+            ${event.type.replace(/_/g, " ")}
+          </div>
+          <div style="font-size: 12px; font-weight: 500; margin-bottom: 4px;">
+            ${event.description}
+          </div>
+          <div style="font-size: 10px; color: #666;">
+            Severity: ${event.severity}
+            <br/>
+            ${new Date(event.timestamp).toLocaleTimeString()}
+          </div>
+        </div>
+      `);
+
+      new mapboxgl.Marker(el)
+        .setLngLat([event.location.lon, event.location.lat])
+        .setPopup(popup)
+        .addTo(map);
+    });
+
+  }, [mapLoaded, mappers, sessions, onMapperClick, events]);
 
   return (
     <>
       <style jsx global>{`
+        .event-popup {
+          z-index: 50 !important;
+        }
         @keyframes pulse {
           0% {
             transform: scale(1);

@@ -1,4 +1,4 @@
-export type VehicleType = 
+export type VehicleType =
   | "TAXI_MAX_RIDES"
   | "OKADA_MOTORCYCLE"
   | "DANFO_BUS"
@@ -87,4 +87,27 @@ export interface OnboardingData {
   vehicleType: VehicleType;
   vehicleNumber?: string;
   agreedToTerms: boolean;
+}
+
+export type MapEventType =
+  | "ACCIDENT"
+  | "TRAFFIC"
+  | "POLICE"
+  | "HAZARD"
+  | "ROAD_WORK"
+  | "SOS";
+
+export interface MapEvent {
+  id: string;
+  type: MapEventType;
+  location: {
+    lat: number;
+    lon: number;
+  };
+  description: string;
+  timestamp: string;
+  reporterId?: string;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  verified: boolean;
+  imageUrl?: string;
 }

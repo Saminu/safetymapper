@@ -15,20 +15,27 @@ import {
   Coins,
   MapPin,
   TrendingUp,
+
   RefreshCw,
+  AlertTriangle,
+  Siren,
+  Construction,
+  Car,
 } from "lucide-react";
 import { getAllMappers, getAllSessions, syncToServer } from "@/lib/storage";
+import { MapEvent } from "@/types/mapper";
 
 import { UserNav } from "@/components/layout/user-nav";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [view, setView] = useState<"map" | "mappers">("map");
+  const [view, setView] = useState<"map" | "mappers" | "events">("map");
   const [mapView, setMapView] = useState<"live" | "all">("live");
   const [currentMapperId, setCurrentMapperId] = useState<string | null>(null);
   const [mappers, setMappers] = useState<Mapper[]>([]);
   const [sessions, setSessions] = useState<MappingSession[]>([]);
   const [allSessions, setAllSessions] = useState<MappingSession[]>([]);
+  const [events, setEvents] = useState<MapEvent[]>([]);
   const [stats, setStats] = useState<NetworkStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDemo, setIsLoadingDemo] = useState(false);
@@ -106,6 +113,61 @@ export default function DashboardPage() {
       setIsLoading(false);
     }
   };
+
+  const generateDummyEvents = () => {
+    const dummyEvents: MapEvent[] = [
+      {
+        id: "evt-1",
+        type: "ACCIDENT",
+        location: { lat: 6.5244, lon: 3.3792 },
+        description: "Minor collision involving two vehicles",
+        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
+        severity: "MEDIUM",
+        verified: true,
+      },
+      {
+        id: "evt-2",
+        type: "TRAFFIC",
+        location: { lat: 6.5500, lon: 3.3500 },
+        description: "Heavy congestion due to broken down truck",
+        timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+        severity: "HIGH",
+        verified: true,
+      },
+      {
+        id: "evt-3",
+        type: "ROAD_WORK",
+        location: { lat: 6.4500, lon: 3.4000 },
+        description: "Road maintenance on Third Mainland Bridge",
+        timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+        severity: "LOW",
+        verified: true,
+      },
+      {
+        id: "evt-4",
+        type: "POLICE",
+        location: { lat: 6.6000, lon: 3.3000 },
+        description: "Checkpoint operation",
+        timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+        severity: "MEDIUM",
+        verified: false,
+      },
+      {
+        id: "evt-5",
+        type: "HAZARD",
+        location: { lat: 6.5000, lon: 3.3800 },
+        description: "Flooded road section",
+        timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+        severity: "HIGH",
+        verified: true,
+      }
+    ];
+    setEvents(dummyEvents);
+  };
+
+  useEffect(() => {
+    generateDummyEvents();
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -263,6 +325,15 @@ export default function DashboardPage() {
           >
             MAP VIEW
           </Button>
+          
+          <Button
+            variant={view === "events" ? "default" : "outline"}
+            onClick={() => setView("events")}
+            className={view === "events" ? "bg-orange-500 hover:bg-orange-600" : ""}
+          >
+            RECENT EVENTS
+          </Button>
+
           <Button
             variant={view === "mappers" ? "default" : "outline"}
             onClick={() => setView("mappers")}
@@ -297,23 +368,29 @@ export default function DashboardPage() {
         </div>
 
         {/* Content */}
-        {view === "map" ? (
+        {view === "map" || view === "events" ? (
           <div>
             <Card className="p-4 mb-4">
-              <h3 className="text-lg font-bold mb-2">
-                {mapView === "live" ? "LIVE NETWORK ACTIVITY" : "ALL MAPPING SESSIONS"}
+              <h3 className="text-lg font-bold">
+                {view === "events" 
+                  ? "RECENT SAFETY EVENTS"
+                  : mapView === "live" ? "LIVE NETWORK ACTIVITY" : "ALL MAPPING SESSIONS"
+                }
               </h3>
               <p className="text-sm text-muted-foreground">
-                {mapView === "live" 
-                  ? "Real-time view of active mappers across Lagos. Each marker represents a live video feed verifying road conditions and security nodes."
-                  : `Showing ${displaySessions.length} total sessions including ${completedSessions.length} completed recordings. View all mapper routes and session data.`
+                {view === "events"
+                  ? "Real-time safety alerts and incidents reported by mappers and verified sources."
+                  : mapView === "live" 
+                    ? "Real-time view of active mappers across Lagos. Each marker represents a live video feed verifying road conditions and security nodes."
+                    : `Showing ${displaySessions.length} total sessions including ${completedSessions.length} completed recordings. View all mapper routes and session data.`
                 }
               </p>
             </Card>
             <div className="relative">
               <MapperMap
                 mappers={mapView === "live" ? liveMappers : mappers}
-                sessions={displaySessions}
+                sessions={view === "events" ? [] : displaySessions}
+                events={view === "events" ? events : []}
                 className="h-[600px] rounded-xl overflow-hidden"
               />
               
@@ -321,7 +398,26 @@ export default function DashboardPage() {
               <Card className="absolute bottom-4 left-4 p-3 bg-background/95 backdrop-blur z-10">
                 <div className="text-xs font-bold mb-2">MAP LEGEND</div>
                 <div className="space-y-1.5 text-xs">
-                  {mapView === "live" ? (
+                  {view === "events" ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500 border-2 border-white" />
+                        <span>Accident/SOS</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-amber-500 border-2 border-white" />
+                        <span>Traffic/Hazard</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
+                        <span>Police</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white" />
+                        <span>Road Work</span>
+                      </div>
+                    </>
+                  ) : mapView === "live" ? (
                     <>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse" />
@@ -356,7 +452,59 @@ export default function DashboardPage() {
               </Card>
             </div>
             
-            {mapView === "all" && completedSessions.length > 0 && (
+            {view === "events" && (
+              <Card className="p-4 mt-4">
+                <h3 className="text-lg font-bold mb-4">EVENT FEED</h3>
+                <div className="space-y-3">
+                  {events.map((event) => (
+                    <div key={event.id} className="flex items-start gap-4 p-3 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
+                      <div className={`p-2 rounded-full shrink-0 ${
+                        event.type === 'ACCIDENT' || event.type === 'SOS' ? 'bg-red-100 text-red-600' :
+                        event.type === 'TRAFFIC' || event.type === 'HAZARD' ? 'bg-amber-100 text-amber-600' :
+                        event.type === 'POLICE' ? 'bg-blue-100 text-blue-600' :
+                        'bg-orange-100 text-orange-600'
+                      }`}>
+                        {event.type === 'ACCIDENT' && <Siren className="w-5 h-5" />}
+                        {event.type === 'TRAFFIC' && <Car className="w-5 h-5" />}
+                        {event.type === 'POLICE' && <AlertTriangle className="w-5 h-5" />}
+                        {event.type === 'HAZARD' && <AlertTriangle className="w-5 h-5" />}
+                        {event.type === 'ROAD_WORK' && <Construction className="w-5 h-5" />}
+                        {event.type === 'SOS' && <Siren className="w-5 h-5" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="font-bold">{event.type.replace(/_/g, " ")}</h4>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            event.severity === 'CRITICAL' ? 'bg-red-500 text-white' :
+                            event.severity === 'HIGH' ? 'bg-orange-500 text-white' :
+                            event.severity === 'MEDIUM' ? 'bg-yellow-500 text-white' :
+                            'bg-blue-500 text-white'
+                          }`}>
+                            {event.severity}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">{event.description}</p>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3" />
+                            {new Date(event.timestamp).toLocaleTimeString()}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            {event.verified ? (
+                              <span className="text-green-600 font-medium">Verified Source</span>
+                            ) : (
+                              <span className="text-yellow-600">Unverified</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {view === "map" && mapView === "all" && completedSessions.length > 0 && (
               <Card className="p-4 mt-4 bg-blue-500/10 border-blue-500/20">
                 <div className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
