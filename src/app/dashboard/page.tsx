@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs } from "@/components/ui/tabs";
-import { MapperMap } from "@/components/map/mapper-map";
+import { MapperMap, MapperMapRef } from "@/components/map/mapper-map";
 import { Mapper, MappingSession, NetworkStats } from "@/types/mapper";
 import {
   Users,
@@ -29,6 +29,8 @@ import { UserNav } from "@/components/layout/user-nav";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const mapRef = useRef<MapperMapRef>(null);
+  const eventFeedRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<"map" | "mappers" | "events">("map");
   const [mapView, setMapView] = useState<"live" | "all">("live");
   const [currentMapperId, setCurrentMapperId] = useState<string | null>(null);
@@ -160,6 +162,15 @@ export default function DashboardPage() {
         timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
         severity: "HIGH",
         verified: true,
+      },
+      {
+        id: "evt-6",
+        type: "TRAFFIC",
+        location: { lat: 6.5100, lon: 3.3600 },
+        description: "Old traffic report (should not appear on map)",
+        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 25).toISOString(), // 25 hours ago
+        severity: "LOW",
+        verified: true,
       }
     ];
     setEvents(dummyEvents);
@@ -200,6 +211,13 @@ export default function DashboardPage() {
   
   // Choose which sessions to display on map based on view
   const displaySessions = mapView === "live" ? sessions : allSessions;
+
+  // Filter events for map (only show last 24h)
+  const mapEvents = events.filter(event => {
+    const eventTime = new Date(event.timestamp).getTime();
+    const now = new Date().getTime();
+    return (now - eventTime) < (24 * 60 * 60 * 1000);
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -328,7 +346,12 @@ export default function DashboardPage() {
           
           <Button
             variant={view === "events" ? "default" : "outline"}
-            onClick={() => setView("events")}
+            onClick={() => {
+              setView("events");
+              setTimeout(() => {
+                eventFeedRef.current?.scrollIntoView({ behavior: "smooth" });
+              }, 100);
+            }}
             className={view === "events" ? "bg-orange-500 hover:bg-orange-600" : ""}
           >
             RECENT EVENTS
@@ -388,9 +411,10 @@ export default function DashboardPage() {
             </Card>
             <div className="relative">
               <MapperMap
+                ref={mapRef}
                 mappers={mapView === "live" ? liveMappers : mappers}
                 sessions={view === "events" ? [] : displaySessions}
-                events={view === "events" ? events : []}
+                events={view === "events" ? mapEvents : []}
                 className="h-[600px] rounded-xl overflow-hidden"
               />
               
@@ -453,11 +477,21 @@ export default function DashboardPage() {
             </div>
             
             {view === "events" && (
-              <Card className="p-4 mt-4">
+              <Card className="p-4 mt-4" ref={eventFeedRef}>
                 <h3 className="text-lg font-bold mb-4">EVENT FEED</h3>
                 <div className="space-y-3">
                   {events.map((event) => (
-                    <div key={event.id} className="flex items-start gap-4 p-3 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
+                    <div 
+                      key={event.id} 
+                      className="flex items-start gap-4 p-3 border rounded-lg bg-card hover:bg-accent/5 transition-colors cursor-pointer"
+                      onClick={() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        // Small delay to allow scroll to start before map movement
+                        setTimeout(() => {
+                          mapRef.current?.flyToEvent(event.location);
+                        }, 100);
+                      }}
+                    >
                       <div className={`p-2 rounded-full shrink-0 ${
                         event.type === 'ACCIDENT' || event.type === 'SOS' ? 'bg-red-100 text-red-600' :
                         event.type === 'TRAFFIC' || event.type === 'HAZARD' ? 'bg-amber-100 text-amber-600' :

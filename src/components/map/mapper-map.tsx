@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Mapper, MappingSession, MapEvent } from "@/types/mapper";
@@ -15,14 +15,17 @@ interface MapperMapProps {
   className?: string;
 }
 
-export function MapperMap({
+export interface MapperMapRef {
+  flyToEvent: (location: { lat: number; lon: number }) => void;
+}
+
+export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
   mappers,
   sessions,
-
   onMapperClick,
   events = [],
   className = "",
-}: MapperMapProps) {
+}, ref) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -56,6 +59,22 @@ export function MapperMap({
       map.remove();
     };
   }, []);
+
+  useImperativeHandle(ref, () => ({
+    flyToEvent: (location: { lat: number; lon: number }) => {
+      if (mapRef.current) {
+        mapRef.current.flyTo({
+          center: [location.lon, location.lat],
+          zoom: 15,
+          essential: true
+        });
+        
+        // Find and open popup if it exists
+        // Note: This is a bit tricky since markers are created imperatively.
+        // We might want to store marker references if we need to open them programmatically.
+      }
+    }
+  }));
 
   // Add mapper markers
   useEffect(() => {
@@ -352,4 +371,6 @@ export function MapperMap({
       <div ref={mapContainerRef} className={className} />
     </>
   );
-}
+});
+
+MapperMap.displayName = "MapperMap";
