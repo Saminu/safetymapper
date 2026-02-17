@@ -38,17 +38,19 @@ export default function RewardsPage() {
 
   const fetchMapperData = async (id: string) => {
     try {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const [mapperRes, sessionsRes] = await Promise.all([
-        fetch(`/api/mappers?id=${id}`),
-        fetch(`/api/sessions?mapperId=${id}`),
+        fetch("/api/mappers/profile", { headers }),
+        fetch(`/api/sessions?mapperId=${id}`, { headers }),
       ]);
 
       const mapperData = await mapperRes.json();
       const sessionsData = await sessionsRes.json();
 
-      // Find the specific mapper
-      const mapperInfo = mapperData.mappers?.find((m: Mapper) => m.id === id);
-      setMapper(mapperInfo || null);
+      setMapper(mapperData.mapper || null);
       setSessions(sessionsData.sessions || []);
     } catch (error) {
       console.error("Data fetch error:", error);
@@ -78,11 +80,14 @@ export default function RewardsPage() {
     setIsWithdrawing(true);
 
     try {
-      const response = await fetch("/api/rewards/withdraw", {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const response = await fetch("/api/mappers/withdraw", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
-          mapperId,
           amount,
           bankAccount,
         }),

@@ -50,6 +50,7 @@ export default function OnboardingPage() {
     vehicleType: "TAXI_MAX_RIDES",
     vehicleNumber: "",
     agreedToTerms: false,
+    password: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,7 +58,7 @@ export default function OnboardingPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/mappers", {
+      const response = await fetch("/api/auth/mapper/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -65,10 +66,11 @@ export default function OnboardingPage() {
 
       if (!response.ok) throw new Error("Failed to register");
 
-      const { mapper } = await response.json();
+      const { mapper, accessToken } = await response.json();
       
-      // Store mapper ID in localStorage
+      // Store mapper ID and token in localStorage
       localStorage.setItem("mapperId", mapper.id);
+      localStorage.setItem("accessToken", accessToken);
       
       // Save mapper to local storage
       saveMapper(mapper);
@@ -205,6 +207,18 @@ export default function OnboardingPage() {
               placeholder="your@email.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-2 block">Password *</label>
+            <Input
+              type="password"
+              placeholder="Create a password (min. 6 chars)"
+              value={formData.password || ""}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              required
+              minLength={6}
             />
           </div>
 

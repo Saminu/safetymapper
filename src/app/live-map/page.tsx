@@ -16,8 +16,8 @@ import {
   TrendingUp,
   Coins,
   Settings,
-  Info,
   CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { SessionStatus, MappingSession } from "@/types/mapper";
 import { saveSession, saveMapper, getMapper, syncToServer } from "@/lib/storage";
@@ -37,6 +37,9 @@ export default function LiveMapPage() {
   const [speed, setSpeed] = useState(0);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const watchIdRef = useRef<number | null>(null);
+  const [showEventReport, setShowEventReport] = useState(false);
+  const [eventCategory, setEventCategory] = useState("ACCIDENT");
+  const [eventDescription, setEventDescription] = useState("");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load mapper ID from localStorage
@@ -139,10 +142,14 @@ export default function LiveMapPage() {
   useEffect(() => {
     if (sessionId && status === "ACTIVE" && location) {
       const updateLocation = async () => {
+        const token = localStorage.getItem("accessToken");
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         // Update server
         await fetch(`/api/sessions/${sessionId}/location`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             location,
             speed,
@@ -192,9 +199,13 @@ export default function LiveMapPage() {
       setIsCalibrating(false);
       
       try {
+        const token = localStorage.getItem("accessToken");
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const response = await fetch("/api/sessions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             mapperId,
             startLocation: location,
@@ -244,8 +255,13 @@ export default function LiveMapPage() {
             formData.append("sessionId", session.id);
 
             try {
-              const uploadRes = await fetch("/api/sessions/upload", {
+              const token = localStorage.getItem("accessToken");
+              const headers: Record<string, string> = {};
+              if (token) headers["Authorization"] = `Bearer ${token}`;
+
+              const uploadRes = await fetch(`/api/sessions/${session.id}/upload`, {
                 method: "POST",
+                headers,
                 body: formData,
               });
               
@@ -325,9 +341,13 @@ export default function LiveMapPage() {
       }
 
       try {
+        const token = localStorage.getItem("accessToken");
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const response = await fetch(`/api/sessions/${sessionId}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             status: "COMPLETED",
             distance,
@@ -367,6 +387,39 @@ export default function LiveMapPage() {
       } catch (error) {
         console.error("Session end error:", error);
       }
+    }
+  };
+
+  const submitEventReport = async () => {
+    if (!mapperId || !location) return;
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const formData = new FormData();
+      formData.append("category", eventCategory);
+      formData.append("title", eventCategory.charAt(0) + eventCategory.slice(1).toLowerCase());
+      formData.append("description", eventDescription);
+      formData.append("lat", location.lat.toString());
+      formData.append("lon", location.lon.toString());
+      formData.append("severity", "MEDIUM");
+
+      const response = await fetch("/api/events", {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Failed to report event");
+
+      alert("Event reported successfully! The network has been notified.");
+      setShowEventReport(false);
+      setEventDescription("");
+    } catch (error) {
+      console.error("Event report error:", error);
+      alert("Failed to report event. Please try again.");
     }
   };
 
@@ -461,6 +514,18 @@ export default function LiveMapPage() {
               <div className="text-2xl font-bold">{tokensEarned.toFixed(2)}</div>
               <div className="text-xs text-muted-foreground">TOKENS</div>
             </Card>
+          </div>
+
+          {/* Event Report Button (Fixed on side or below stats) */}
+          <div className="mb-4">
+            <Button
+              onClick={() => setShowEventReport(true)}
+              className="w-full bg-amber-500 hover:bg-amber-600 h-14 text-lg"
+              disabled={status === "COMPLETED"}
+            >
+              <AlertTriangle className="w-6 h-6 mr-2" />
+              REPORT EVENT
+            </Button>
           </div>
 
           {/* Controls */}
@@ -562,6 +627,72 @@ export default function LiveMapPage() {
           )}
         </div>
       </div>
+
+      {/* Event Report Modal */}
+      {showEventReport && (
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg p-6 space-y-4">
+            <h3 className="text-xl font-bold flex items-center gap-2">
+              <AlertTriangle className="text-amber-500" />
+              Report Safety Event
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Category</label>
+                <select 
+                  className="w-full bg-background border rounded-md p-2"
+                  value={eventCategory}
+                  onChange={(e) => setEventCategory(e.target.value)}
+                >
+                  <option value="ACCIDENT">Accident</option>
+                  <option value="FLOOD">Flood</option>
+                  <option value="RAIN">Heavy Rain</option>
+                  <option value="TRAFFIC">Gridlock</option>
+                  <option value="POLICE">Police Checkpoint</option>
+                  <option value="HAZARD">Road Hazard</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Brief Description</label>
+                <textarea
+                  className="w-full bg-background border rounded-md p-2 h-24"
+                  placeholder="What happened? (e.g., 'Truck breakdown on bridge')"
+                  value={eventDescription}
+                  onChange={(e) => setEventDescription(e.target.value)}
+                />
+              </div>
+
+              <div className="bg-muted p-3 rounded-md text-xs text-muted-foreground flex gap-2">
+                <MapPin className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                <span>
+                  This report will be tagged with your current location: 
+                  <strong> {location?.lat.toFixed(4)}, {location?.lon.toFixed(4)}</strong>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowEventReport(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-amber-500 hover:bg-amber-600"
+                onClick={submitEventReport}
+                disabled={!eventDescription}
+              >
+                Submit Report
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

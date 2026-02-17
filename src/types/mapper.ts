@@ -87,6 +87,7 @@ export interface OnboardingData {
   vehicleType: VehicleType;
   vehicleNumber?: string;
   agreedToTerms: boolean;
+  password?: string;
 }
 
 export type MapEventType =
