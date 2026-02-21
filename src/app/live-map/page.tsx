@@ -18,6 +18,7 @@ import {
   Settings,
   CheckCircle,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import { SessionStatus, MappingSession } from "@/types/mapper";
 import { saveSession, saveMapper, getMapper, syncToServer } from "@/lib/storage";

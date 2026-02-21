@@ -106,6 +106,9 @@ export default function OnboardingPage() {
               <Button size="lg" onClick={() => setStep("form")} className="bg-orange-500 hover:bg-orange-600">
                 BECOME A MAPPER
               </Button>
+              <Button size="lg" variant="outline" onClick={() => router.push("/login")} className="border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950">
+                LOG IN
+              </Button>
               <Button size="lg" variant="outline" onClick={() => router.push("/")}>
                 VIEW MAPPER GRID
               </Button>
@@ -201,12 +204,13 @@ export default function OnboardingPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Email (Optional)</label>
+            <label className="text-sm font-medium mb-2 block">Email Address *</label>
             <Input
               type="email"
               placeholder="your@email.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
             />
           </div>
 
@@ -282,6 +286,19 @@ export default function OnboardingPage() {
             >
               {isLoading ? "Registering..." : "JOIN NETWORK"}
             </Button>
+          </div>
+          
+          <div className="text-center mt-4 pt-4 border-t">
+            <p className="text-sm text-muted-foreground">
+              Already have an account?{" "}
+              <button 
+                type="button" 
+                onClick={() => router.push("/login")}
+                className="text-orange-500 hover:underline font-medium"
+              >
+                Log in here
+              </button>
+            </p>
           </div>
         </form>
       </Card>
