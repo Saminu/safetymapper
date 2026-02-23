@@ -10,7 +10,7 @@ import { AuthPayload, AuthRequest } from '../types';
  */
 export const userSignup = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone, adminSecret } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -37,14 +37,17 @@ export const userSignup = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    // If adminSecret is correct, make them an admin
+    const role = adminSecret && adminSecret === process.env.ADMIN_SECRET ? 'admin' : 'user';
+
     // Create user
-    const user = await User.create({ name, email, password, phone, role: 'user' });
+    const user = await User.create({ name, email, password, phone, role });
 
     // Generate tokens
     const payload: AuthPayload = {
       id: user._id.toString(),
       email: user.email,
-      role: 'user',
+      role: role as 'user' | 'admin',
     };
     const tokens = generateTokenPair(payload);
 

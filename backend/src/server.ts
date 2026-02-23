@@ -14,7 +14,7 @@ import authRoutes from './routes/authRoutes';
 import eventRoutes, { videoRouter } from './routes/eventRoutes';
 import mapperRoutes from './routes/mapperRoutes';
 import sessionRoutes from './routes/sessionRoutes';
-
+import adminRoutes from './routes/adminRoutes';
 const app = express();
 
 // ── Security & Middleware ──────────────────────────────
@@ -67,6 +67,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/videos', videoRouter);
 app.use('/api/mappers', mapperRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/network-stats', (_req, res) => {
   // Redirect to session's network stats handler
   res.redirect(307, '/api/sessions/network-stats');

@@ -7,7 +7,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   phone?: string;
-  role: 'user';
+  role: 'user' | 'admin';
   avatar?: string;
   location?: {
     lat: number;
@@ -49,7 +49,7 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['user'],
+      enum: ['user', 'admin'],
       default: 'user',
     },
     avatar: String,

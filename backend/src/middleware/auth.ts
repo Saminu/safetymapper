@@ -82,3 +82,8 @@ export const mapperOnly = authorize('mapper');
  * User-only middleware
  */
 export const userOnly = authorize('user');
+
+/**
+ * Admin-only middleware
+ */
+export const adminOnly = authorize('admin');

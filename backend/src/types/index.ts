@@ -3,7 +3,7 @@ import { Request } from 'express';
 export interface AuthPayload {
   id: string;
   email: string;
-  role: 'mapper' | 'user';
+  role: 'mapper' | 'user' | 'admin';
 }
 
 export interface AuthRequest extends Request {
@@ -37,7 +37,7 @@ export type EventCategory =
   | 'SOS'
   | 'OTHER';
 
-export type EventStatus = 'ACTIVE' | 'CLEARED' | 'UPDATED';
+export type EventStatus = 'ACTIVE' | 'CLEARED' | 'UPDATED' | 'CLOSED';
 
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 

@@ -53,7 +53,7 @@ const eventUpdateSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ['ACTIVE', 'CLEARED', 'UPDATED'],
+      enum: ['ACTIVE', 'CLEARED', 'UPDATED', 'CLOSED'],
       required: true,
     },
     comment: {
@@ -125,7 +125,7 @@ const eventSchema = new Schema<IEvent>(
     },
     status: {
       type: String,
-      enum: ['ACTIVE', 'CLEARED', 'UPDATED'],
+      enum: ['ACTIVE', 'CLEARED', 'UPDATED', 'CLOSED'],
       default: 'ACTIVE',
     },
     videoUrl: String,
