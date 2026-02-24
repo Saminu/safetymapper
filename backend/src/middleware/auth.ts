@@ -64,7 +64,10 @@ export const authorize = (...roles: string[]) => {
       return;
     }
 
+    console.log(`[Auth] Checking access for user ${req.user.id}, role: ${req.user.role}. Required roles: ${roles.join(', ')}`);
+
     if (!roles.includes(req.user.role)) {
+      console.warn(`[Auth] Access denied for user ${req.user.id}. Role ${req.user.role} not in ${roles.join(', ')}`);
       res.status(403).json({ error: 'You do not have permission to perform this action.' });
       return;
     }
