@@ -108,7 +108,7 @@ export const userLogin = async (req: Request, res: Response): Promise<void> => {
     const payload: AuthPayload = {
       id: user._id.toString(),
       email: user.email,
-      role: 'user',
+      role: user.role,
     };
     const tokens = generateTokenPair(payload);
 

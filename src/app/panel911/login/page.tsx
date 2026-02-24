@@ -69,7 +69,7 @@ export default function AdminLogin() {
             <label className="text-sm font-medium text-zinc-300 mb-2 block">Admin Email</label>
             <Input
               type="email"
-              placeholder="admin@safetymapper.com"
+              placeholder=""
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="bg-zinc-800 border-zinc-700 text-white focus:ring-orange-500 focus:border-orange-500"
