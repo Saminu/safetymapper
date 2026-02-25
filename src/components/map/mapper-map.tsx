@@ -268,12 +268,129 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
     const existingEventMarkers = document.querySelectorAll(".event-marker");
     existingEventMarkers.forEach((marker) => marker.remove());
 
+    // Create/get global lightbox element
+    let lightbox = document.getElementById("safetymapper-lightbox");
+    if (!lightbox) {
+      lightbox = document.createElement("div");
+      lightbox.id = "safetymapper-lightbox";
+      lightbox.style.cssText = `
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(0, 0, 0, 0.92);
+        backdrop-filter: blur(8px);
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: 20px;
+      `;
+      lightbox.innerHTML = `
+        <button id="lightbox-close" style="
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.15);
+          border: none;
+          color: white;
+          font-size: 24px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10;
+          transition: background 0.2s;
+        ">✕</button>
+        <div id="lightbox-content" style="
+          max-width: 90vw;
+          max-height: 85vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        "></div>
+        <div id="lightbox-badge" style="
+          margin-top: 12px;
+          padding: 4px 12px;
+          border-radius: 9999px;
+          font-size: 12px;
+          font-weight: 600;
+          color: white;
+        "></div>
+      `;
+      document.body.appendChild(lightbox);
+
+      // Close lightbox on backdrop click
+      lightbox.addEventListener("click", (e) => {
+        if (e.target === lightbox) {
+          closeLightbox();
+        }
+      });
+      document.getElementById("lightbox-close")?.addEventListener("click", closeLightbox);
+      // Close on Escape key
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeLightbox();
+      });
+    }
+
+    function closeLightbox() {
+      const lb = document.getElementById("safetymapper-lightbox");
+      if (lb) {
+        lb.style.display = "none";
+        const content = document.getElementById("lightbox-content");
+        if (content) content.innerHTML = "";
+      }
+    }
+
+    function openLightbox(url: string, type: string, sourceType: string) {
+      const lb = document.getElementById("safetymapper-lightbox");
+      const content = document.getElementById("lightbox-content");
+      const badge = document.getElementById("lightbox-badge");
+      if (!lb || !content) return;
+
+      content.innerHTML = "";
+
+      if (type === "video") {
+        content.innerHTML = `
+          <video src="${url}" controls autoplay playsinline style="
+            max-width: 90vw;
+            max-height: 80vh;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          "></video>
+        `;
+      } else {
+        content.innerHTML = `
+          <img src="${url}" alt="Event media" style="
+            max-width: 90vw;
+            max-height: 80vh;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            object-fit: contain;
+          " />
+        `;
+      }
+
+      if (badge) {
+        const isCaptured = sourceType === "CAPTURED";
+        badge.style.background = isCaptured ? "#22c55e" : "#f59e0b";
+        badge.textContent = isCaptured ? "📸 Live Capture" : "📤 Camera Roll Upload";
+      }
+
+      lb.style.display = "flex";
+    }
+
+    // Make openLightbox globally accessible for popup click handlers
+    (window as any).__smOpenLightbox = openLightbox;
+
     events.forEach((event) => {
       const el = document.createElement("div");
       el.className = "event-marker";
       
       let icon = "⚠️";
-      let color = "#ef4444"; // red-500
+      let color = "#ef4444";
       
       const eventType = event.type || event.category || "";
       switch(eventType) {
@@ -340,7 +457,7 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
       
       el.innerHTML = icon;
 
-      // Build media section HTML
+      // Build media section HTML with clickable items
       let mediaHtml = "";
       const mediaItems = event.media || [];
       if (mediaItems.length > 0) {
@@ -353,10 +470,29 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
             ? "Captured live in the app at the time of the event"
             : "Uploaded from device gallery / camera roll";
           
+          // Escape URL for use in onclick
+          const escapedUrl = m.url.replace(/'/g, "\\'");
+          
           return `
-            <div style="position: relative; width: 80px; height: 60px; border-radius: 6px; overflow: hidden; flex-shrink: 0; border: 1px solid #e5e7eb;">
+            <div
+              onclick="window.__smOpenLightbox('${escapedUrl}', '${m.type}', '${m.sourceType}')"
+              title="Click to expand${isVideo ? ' and play' : ''}"
+              style="
+                position: relative;
+                width: 80px;
+                height: 60px;
+                border-radius: 6px;
+                overflow: hidden;
+                flex-shrink: 0;
+                border: 1px solid #e5e7eb;
+                cursor: pointer;
+                transition: transform 0.15s, box-shadow 0.15s;
+              "
+              onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)';"
+              onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';"
+            >
               ${isVideo
-                ? `<video src="${m.url}" style="width:100%;height:100%;object-fit:cover;" muted playsinline></video>`
+                ? `<video src="${m.url}" style="width:100%;height:100%;object-fit:cover;" muted playsinline preload="metadata"></video>`
                 : `<img src="${m.url}" style="width:100%;height:100%;object-fit:cover;" alt="event media" />`
               }
               <div style="position:absolute;bottom:2px;left:2px;" title="${tooltipText}">
@@ -371,19 +507,20 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
                   background: ${badgeColor}cc;
                   color: white;
                   backdrop-filter: blur(4px);
-                  cursor: help;
                 ">${badgeLabel}</span>
               </div>
-              ${isVideo ? `<div style="position:absolute;top:2px;right:2px;">
+              ${isVideo ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
                 <span style="
-                  display: inline-flex;
-                  padding: 1px 3px;
-                  border-radius: 3px;
-                  font-size: 7px;
-                  font-weight: 700;
-                  background: #7c3aedcc;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 24px;
+                  height: 24px;
+                  border-radius: 50%;
+                  background: rgba(0,0,0,0.6);
                   color: white;
-                ">▶ VID</span>
+                  font-size: 10px;
+                ">▶</span>
               </div>` : ""}
             </div>`;
         }).join("");
@@ -396,9 +533,29 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
           </div>`;
       } else if (event.videoUrl) {
         // Legacy single video
+        const escapedUrl = event.videoUrl.replace(/'/g, "\\'");
         mediaHtml = `
           <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e7eb;">
-            <video src="${event.videoUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;" controls muted playsinline></video>
+            <div
+              onclick="window.__smOpenLightbox('${escapedUrl}', 'video', 'UPLOADED')"
+              style="cursor: pointer; position: relative;"
+              title="Click to play video"
+            >
+              <video src="${event.videoUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;" muted playsinline preload="metadata"></video>
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+                <span style="
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  width: 32px;
+                  height: 32px;
+                  border-radius: 50%;
+                  background: rgba(0,0,0,0.6);
+                  color: white;
+                  font-size: 14px;
+                ">▶</span>
+              </div>
+            </div>
           </div>`;
       }
 
@@ -457,6 +614,10 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
         .event-popup {
           z-index: 50 !important;
         }
+        .event-popup .mapboxgl-popup-content {
+          border-radius: 12px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
         @keyframes pulse {
           0% {
             transform: scale(1);
@@ -478,3 +639,4 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
 });
 
 MapperMap.displayName = "MapperMap";
+

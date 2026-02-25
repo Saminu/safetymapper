@@ -345,8 +345,17 @@ export default function LiveMapPage() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to submit event");
+        let errorMessage = "Failed to submit event";
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch {
+          // Response is not JSON (e.g. plain text error from proxy/server)
+          const text = await response.text().catch(() => "");
+          if (text) errorMessage = text;
+          if (response.status === 413) errorMessage = "File is too large. Try a smaller video.";
+        }
+        throw new Error(errorMessage);
       }
 
       setSubmitSuccess(true);
