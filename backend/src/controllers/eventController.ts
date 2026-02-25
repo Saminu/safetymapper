@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import Event, { IMediaItem } from '../models/Event';
 import Mapper from '../models/Mapper';
 import Transaction from '../models/Transaction';
+import User from '../models/User';
 import { AuthRequest } from '../types';
 import { isWithinRadius } from '../utils/helpers';
 import path from 'path';
@@ -45,9 +46,19 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       const mapper = await Mapper.findById(req.user.id);
       if (mapper) reporterName = mapper.name;
     } else {
-      const User = (await import('../models/User')).default;
       const user = await User.findById(req.user.id);
       if (user) reporterName = user.name;
+    }
+
+    const parsedLat = parseFloat(lat);
+    const parsedLon = parseFloat(lon);
+
+    if (isNaN(parsedLat) || isNaN(parsedLon)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid latitude or longitude coordinates',
+      });
+      return;
     }
 
     // Handle media files (multiple)
@@ -103,8 +114,8 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       title,
       description: description || '',
       location: {
-        lat: parseFloat(lat),
-        lon: parseFloat(lon),
+        lat: parsedLat,
+        lon: parsedLon,
         address,
       },
       severity: severity || 'MEDIUM',
@@ -157,9 +168,14 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
         createdAt: event.createdAt,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create event error:', error);
-    res.status(500).json({ success: false, error: 'Failed to create event' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create event',
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
@@ -447,9 +463,13 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
       message: `Event ${status === 'CLEARED' ? 'marked as cleared' : 'updated'} successfully`,
       event,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update event error:', error);
-    res.status(500).json({ success: false, error: 'Failed to update event' });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update event',
+      message: error.message
+    });
   }
 };
 

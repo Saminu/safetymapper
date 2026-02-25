@@ -338,7 +338,10 @@ export default function LiveMapPage() {
       const hasCaptures = mediaFiles.some((m) => m.sourceType === "CAPTURED");
       formData.append("sourceType", hasCaptures ? "CAPTURED" : "UPLOADED");
 
-      const response = await fetch("/api/events", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+      const endpoint = apiUrl.startsWith("http") ? `${apiUrl}/events` : "/api/events";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers,
         body: formData,
@@ -348,7 +351,7 @@ export default function LiveMapPage() {
         let errorMessage = "Failed to submit event";
         try {
           const data = await response.json();
-          errorMessage = data.error || errorMessage;
+          errorMessage = data.message || data.error || errorMessage;
         } catch {
           // Response is not JSON (e.g. plain text error from proxy/server)
           const text = await response.text().catch(() => "");
