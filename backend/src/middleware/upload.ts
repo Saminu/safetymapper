@@ -34,13 +34,10 @@ const videoStorage = multer.diskStorage({
 });
 
 // Storage configuration for mixed media (images + videos)
+// All files stored in videosDir so they can be served via /api/videos/:filename
 const mediaStorage = multer.diskStorage({
-  destination: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, imagesDir);
-    } else {
-      cb(null, videosDir);
-    }
+  destination: (_req, _file, cb) => {
+    cb(null, videosDir);
   },
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname) || (file.mimetype.startsWith('image/') ? '.jpg' : '.mp4');

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -19,8 +21,6 @@ import {
   Loader2,
   ChevronLeft,
   Plus,
-  Trash2,
-  Info,
   Send,
 } from "lucide-react";
 import { MapEventType } from "@/types/mapper";
@@ -37,6 +37,13 @@ interface MediaFile {
 type LocationMode = "current" | "pick";
 type Step = "media" | "details" | "location" | "review";
 
+const STEPS: { key: Step; label: string }[] = [
+  { key: "media", label: "Media" },
+  { key: "details", label: "Details" },
+  { key: "location", label: "Location" },
+  { key: "review", label: "Review" },
+];
+
 const EVENT_CATEGORIES: { value: MapEventType; label: string; icon: string }[] = [
   { value: "ACCIDENT", label: "Accident", icon: "💥" },
   { value: "FLOOD", label: "Flood", icon: "🌊" },
@@ -51,6 +58,8 @@ const EVENT_CATEGORIES: { value: MapEventType; label: string; icon: string }[] =
   { value: "OTHER", label: "Other", icon: "📋" },
 ];
 
+const LAGOS_CENTER: [number, number] = [3.3792, 6.5244];
+
 export default function LiveMapPage() {
   const router = useRouter();
 
@@ -64,7 +73,7 @@ export default function LiveMapPage() {
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState<"photo" | "video">("photo");
   const [isRecording, setIsRecording] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -81,6 +90,14 @@ export default function LiveMapPage() {
   const [eventLocation, setEventLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [locationMode, setLocationMode] = useState<LocationMode>("current");
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
+
+  // Map picker state
+  const pickerMapContainerRef = useRef<HTMLDivElement>(null);
+  const pickerMapRef = useRef<mapboxgl.Map | null>(null);
+  const pickerMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
+  // Step index helper
+  const currentStepIndex = STEPS.findIndex((s) => s.key === step);
 
   // Initialize geolocation
   useEffect(() => {
@@ -128,6 +145,62 @@ export default function LiveMapPage() {
     }
   }, [router, locationMode]);
 
+  // Initialize picker map when "pick" mode is selected
+  useEffect(() => {
+    if (locationMode !== "pick" || step !== "location" || !pickerMapContainerRef.current) return;
+
+    // If map already exists, just return
+    if (pickerMapRef.current) return;
+
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    if (!token) return;
+    mapboxgl.accessToken = token;
+
+    const center: [number, number] = currentLocation
+      ? [currentLocation.lon, currentLocation.lat]
+      : LAGOS_CENTER;
+
+    const map = new mapboxgl.Map({
+      container: pickerMapContainerRef.current,
+      style: "mapbox://styles/mapbox/dark-v11",
+      center,
+      zoom: 14,
+    });
+
+    // Add a draggable marker
+    const markerEl = document.createElement("div");
+    markerEl.innerHTML = "📍";
+    markerEl.style.cssText = "font-size: 32px; cursor: grab; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));";
+
+    const marker = new mapboxgl.Marker({ element: markerEl, draggable: true })
+      .setLngLat(eventLocation ? [eventLocation.lon, eventLocation.lat] : center)
+      .addTo(map);
+
+    marker.on("dragend", () => {
+      const lngLat = marker.getLngLat();
+      setEventLocation({ lat: lngLat.lat, lon: lngLat.lng });
+    });
+
+    // Click on map to move marker
+    map.on("click", (e) => {
+      const { lng, lat } = e.lngLat;
+      marker.setLngLat([lng, lat]);
+      setEventLocation({ lat, lon: lng });
+    });
+
+    // Add navigation controls
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    pickerMapRef.current = map;
+    pickerMarkerRef.current = marker;
+
+    return () => {
+      map.remove();
+      pickerMapRef.current = null;
+      pickerMarkerRef.current = null;
+    };
+  }, [locationMode, step]);
+
   // Camera functions
   const startCamera = useCallback(async () => {
     try {
@@ -137,8 +210,8 @@ export default function LiveMapPage() {
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
       }
       setShowCamera(true);
     } catch (error) {
@@ -161,13 +234,13 @@ export default function LiveMapPage() {
   }, []);
 
   const capturePhoto = useCallback(() => {
-    if (!videoRef.current) return;
+    if (!cameraVideoRef.current) return;
     const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    canvas.width = cameraVideoRef.current.videoWidth;
+    canvas.height = cameraVideoRef.current.videoHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(videoRef.current, 0, 0);
+    ctx.drawImage(cameraVideoRef.current, 0, 0);
     canvas.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: "image/jpeg" });
@@ -208,7 +281,7 @@ export default function LiveMapPage() {
     const newMedia: MediaFile[] = toAdd.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
-      type: file.type.startsWith("video/") ? "video" : "image",
+      type: file.type.startsWith("video/") ? "video" as const : "image" as const,
       sourceType: "UPLOADED" as MediaSourceType,
     }));
     setMediaFiles((prev) => [...prev, ...newMedia]);
@@ -224,11 +297,13 @@ export default function LiveMapPage() {
     });
   }, []);
 
-  // Cleanup previews
+  // Cleanup previews on unmount
   useEffect(() => {
     return () => {
       mediaFiles.forEach((m) => URL.revokeObjectURL(m.preview));
-      stopCamera();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
     };
   }, []);
 
@@ -250,13 +325,16 @@ export default function LiveMapPage() {
       const formData = new FormData();
       mediaFiles.forEach((m) => formData.append("media", m.file));
       formData.append("category", eventCategory);
-      formData.append("title", eventCategory === "OTHER" ? customCategory : EVENT_CATEGORIES.find((c) => c.value === eventCategory)?.label || eventCategory);
+      formData.append("title",
+        eventCategory === "OTHER"
+          ? customCategory
+          : EVENT_CATEGORIES.find((c) => c.value === eventCategory)?.label || eventCategory
+      );
       if (eventCategory === "OTHER") formData.append("customCategory", customCategory);
       formData.append("description", eventDescription);
       formData.append("lat", eventLocation.lat.toString());
       formData.append("lon", eventLocation.lon.toString());
       formData.append("severity", severity);
-      // Set sourceType based on the predominant type of media
       const hasCaptures = mediaFiles.some((m) => m.sourceType === "CAPTURED");
       formData.append("sourceType", hasCaptures ? "CAPTURED" : "UPLOADED");
 
@@ -274,7 +352,7 @@ export default function LiveMapPage() {
       setSubmitSuccess(true);
       setTimeout(() => {
         router.push("/dashboard");
-      }, 2000);
+      }, 2500);
     } catch (error) {
       console.error("Submit error:", error);
       alert(error instanceof Error ? error.message : "Failed to submit event. Please try again.");
@@ -283,7 +361,7 @@ export default function LiveMapPage() {
     }
   };
 
-  // Success screen
+  // ─── Success screen ───
   if (submitSuccess) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -296,7 +374,18 @@ export default function LiveMapPage() {
             Your safety event has been submitted and is now live on the map. Thank you for keeping the community safe!
           </p>
           <div className="flex gap-3 pt-4">
-            <Button variant="outline" className="flex-1" onClick={() => { setSubmitSuccess(false); setStep("media"); setMediaFiles([]); setEventDescription(""); setEventCategory("ACCIDENT"); setCustomCategory(""); }}>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setSubmitSuccess(false);
+                setStep("media");
+                setMediaFiles([]);
+                setEventDescription("");
+                setEventCategory("ACCIDENT");
+                setCustomCategory("");
+              }}
+            >
               Report Another
             </Button>
             <Button className="flex-1 bg-orange-500 hover:bg-orange-600" onClick={() => router.push("/dashboard")}>
@@ -325,42 +414,46 @@ export default function LiveMapPage() {
         </div>
       </div>
 
-      {/* Step Indicator */}
+      {/* Step Indicator - fixed alignment */}
       <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center gap-2 mb-6">
-          {(["media", "details", "location", "review"] as Step[]).map((s, i) => (
-            <div key={s} className="flex items-center flex-1">
-              <button
-                onClick={() => {
-                  if (s === "media") setStep(s);
-                  else if (s === "details" && canProceedToDetails) setStep(s);
-                  else if (s === "location" && canProceedToDetails && canProceedToLocation) setStep(s);
-                  else if (s === "review" && canSubmit) setStep(s);
-                }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                  step === s
-                    ? "bg-orange-500 text-white scale-110"
-                    : (["media", "details", "location", "review"].indexOf(step) > i)
-                    ? "bg-green-500 text-white"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {(["media", "details", "location", "review"].indexOf(step) > i) ? "✓" : i + 1}
-              </button>
-              {i < 3 && (
-                <div className={`flex-1 h-0.5 mx-1 transition-all ${
-                  (["media", "details", "location", "review"].indexOf(step) > i)
-                    ? "bg-green-500" : "bg-muted"
-                }`} />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between text-xs text-muted-foreground mb-6">
-          <span className={step === "media" ? "text-orange-500 font-medium" : ""}>Media</span>
-          <span className={step === "details" ? "text-orange-500 font-medium" : ""}>Details</span>
-          <span className={step === "location" ? "text-orange-500 font-medium" : ""}>Location</span>
-          <span className={step === "review" ? "text-orange-500 font-medium" : ""}>Review</span>
+        <div className="mb-6">
+          {/* Numbers row */}
+          <div className="flex items-center mb-2">
+            {STEPS.map((s, i) => (
+              <div key={s.key} className="flex items-center" style={{ flex: i < STEPS.length - 1 ? 1 : "none" }}>
+                <button
+                  onClick={() => {
+                    if (s.key === "media") setStep(s.key);
+                    else if (s.key === "details" && canProceedToDetails) setStep(s.key);
+                    else if (s.key === "location" && canProceedToDetails && canProceedToLocation) setStep(s.key);
+                    else if (s.key === "review" && canSubmit) setStep(s.key);
+                  }}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all flex-shrink-0 ${
+                    step === s.key
+                      ? "bg-orange-500 text-white scale-110 shadow-lg shadow-orange-500/30"
+                      : currentStepIndex > i
+                      ? "bg-green-500 text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {currentStepIndex > i ? "✓" : i + 1}
+                </button>
+                {i < STEPS.length - 1 && (
+                  <div className={`flex-1 h-0.5 mx-2 transition-all ${currentStepIndex > i ? "bg-green-500" : "bg-muted"}`} />
+                )}
+              </div>
+            ))}
+          </div>
+          {/* Labels row - aligned under each circle */}
+          <div className="flex">
+            {STEPS.map((s, i) => (
+              <div key={s.key} style={{ flex: i < STEPS.length - 1 ? 1 : "none" }}>
+                <span className={`text-xs block ${step === s.key ? "text-orange-500 font-semibold" : currentStepIndex > i ? "text-green-500 font-medium" : "text-muted-foreground"}`}>
+                  {s.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ─── Step 1: Media ─── */}
@@ -369,7 +462,7 @@ export default function LiveMapPage() {
             <div>
               <h2 className="text-xl font-bold mb-1">Add Photos & Videos</h2>
               <p className="text-sm text-muted-foreground">
-                Capture or upload up to 5 photos/videos of the event. You can mix captured and uploaded media.
+                Capture or upload up to 5 photos/videos of the event.
               </p>
             </div>
 
@@ -381,9 +474,9 @@ export default function LiveMapPage() {
                     {media.type === "image" ? (
                       <img src={media.preview} alt={`Media ${i + 1}`} className="w-full h-full object-cover" />
                     ) : (
-                      <video src={media.preview} className="w-full h-full object-cover" muted playsInline />
+                      <video src={media.preview} className="w-full h-full object-cover" muted playsInline preload="metadata" />
                     )}
-                    {/* Media type indicator */}
+                    {/* Media type badge */}
                     <div className="absolute top-1.5 left-1.5">
                       <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold backdrop-blur-sm ${
                         media.type === "video" ? "bg-purple-500/80 text-white" : "bg-blue-500/80 text-white"
@@ -404,7 +497,7 @@ export default function LiveMapPage() {
                     {/* Remove button */}
                     <button
                       onClick={() => removeMedia(i)}
-                      className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1.5 right-1.5 w-6 h-6 bg-red-500/90 text-white rounded-full flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -423,7 +516,7 @@ export default function LiveMapPage() {
               </div>
             )}
 
-            {/* Empty state - action buttons */}
+            {/* Empty state */}
             {mediaFiles.length === 0 && (
               <Card className="p-8 text-center border-dashed border-2">
                 <div className="space-y-6">
@@ -523,7 +616,7 @@ export default function LiveMapPage() {
               </div>
             </div>
 
-            {/* Custom Category (if OTHER) */}
+            {/* Custom Category */}
             {eventCategory === "OTHER" && (
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
@@ -537,11 +630,11 @@ export default function LiveMapPage() {
                   onChange={(e) => setCustomCategory(e.target.value)}
                   maxLength={50}
                 />
-                <p className="text-xs text-muted-foreground mt-1">This field is required for "Other" events</p>
+                <p className="text-xs text-muted-foreground mt-1">This field is required for &quot;Other&quot; events</p>
               </div>
             )}
 
-            {/* Description  */}
+            {/* Description */}
             <div>
               <label className="text-sm font-medium mb-1.5 block">
                 Event Description <span className="text-muted-foreground font-normal">(optional)</span>
@@ -582,7 +675,7 @@ export default function LiveMapPage() {
               </div>
             </div>
 
-            {/* Navigation buttons */}
+            {/* Navigation */}
             <div className="flex gap-3 pt-2">
               <Button variant="outline" className="flex-1 h-12" onClick={() => setStep("media")}>
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
@@ -614,6 +707,12 @@ export default function LiveMapPage() {
                 onClick={() => {
                   setLocationMode("current");
                   if (currentLocation) setEventLocation(currentLocation);
+                  // Cleanup picker map
+                  if (pickerMapRef.current) {
+                    pickerMapRef.current.remove();
+                    pickerMapRef.current = null;
+                    pickerMarkerRef.current = null;
+                  }
                 }}
                 className={`p-4 rounded-xl border-2 transition-all ${
                   locationMode === "current"
@@ -634,8 +733,8 @@ export default function LiveMapPage() {
                 }`}
               >
                 <MapPin className={`w-6 h-6 mx-auto mb-2 ${locationMode === "pick" ? "text-orange-500" : "text-muted-foreground"}`} />
-                <span className="text-sm font-medium block">Pick on Map</span>
-                <span className="text-xs text-muted-foreground block mt-1">Choose a location</span>
+                <span className="text-sm font-medium block">Choose on Map</span>
+                <span className="text-xs text-muted-foreground block mt-1">Drop a pin</span>
               </button>
             </div>
 
@@ -671,62 +770,47 @@ export default function LiveMapPage() {
             {/* Map location picker */}
             {locationMode === "pick" && (
               <div className="space-y-3">
-                <Card className="p-4">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Enter coordinates or adjust pin on map. You can also tap the map to set the location.
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-medium mb-1 block">Latitude</label>
-                      <input
-                        type="number"
-                        step="0.000001"
-                        className="w-full bg-background border rounded-lg p-2 text-sm font-mono focus:border-orange-500 focus:outline-none"
-                        value={eventLocation?.lat ?? ""}
-                        onChange={(e) => {
-                          const lat = parseFloat(e.target.value);
-                          if (!isNaN(lat)) {
-                            setEventLocation((prev) => ({ lat, lon: prev?.lon ?? 0 }));
-                          }
-                        }}
-                        placeholder="6.5244"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium mb-1 block">Longitude</label>
-                      <input
-                        type="number"
-                        step="0.000001"
-                        className="w-full bg-background border rounded-lg p-2 text-sm font-mono focus:border-orange-500 focus:outline-none"
-                        value={eventLocation?.lon ?? ""}
-                        onChange={(e) => {
-                          const lon = parseFloat(e.target.value);
-                          if (!isNaN(lon)) {
-                            setEventLocation((prev) => ({ lat: prev?.lat ?? 0, lon }));
-                          }
-                        }}
-                        placeholder="3.3792"
-                      />
+                {/* Interactive Map */}
+                <Card className="overflow-hidden">
+                  <div className="relative">
+                    <div ref={pickerMapContainerRef} className="w-full h-[300px]" />
+                    {/* Instruction overlay */}
+                    <div className="absolute top-3 left-3 right-3 pointer-events-none">
+                      <div className="bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-lg text-center">
+                        Tap on the map or drag the pin 📍 to set the event location
+                      </div>
                     </div>
                   </div>
-                  {currentLocation && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-2 text-xs text-orange-500"
-                      onClick={() => setEventLocation(currentLocation)}
-                    >
-                      <Crosshair className="w-3 h-3 mr-1" /> Use my current location
-                    </Button>
-                  )}
                 </Card>
+
+                {/* Location readout */}
                 {eventLocation && (
                   <Card className="p-3 bg-green-500/10 border-green-500/20">
                     <div className="flex items-center gap-2 text-sm text-green-600">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Location set: {eventLocation.lat.toFixed(6)}, {eventLocation.lon.toFixed(6)}</span>
+                      <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                      <span className="font-mono text-xs">📍 {eventLocation.lat.toFixed(6)}, {eventLocation.lon.toFixed(6)}</span>
                     </div>
                   </Card>
+                )}
+
+                {/* Quick action: use current location */}
+                {currentLocation && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-orange-500 w-full"
+                    onClick={() => {
+                      setEventLocation(currentLocation);
+                      if (pickerMarkerRef.current) {
+                        pickerMarkerRef.current.setLngLat([currentLocation.lon, currentLocation.lat]);
+                      }
+                      if (pickerMapRef.current) {
+                        pickerMapRef.current.flyTo({ center: [currentLocation.lon, currentLocation.lat], zoom: 15 });
+                      }
+                    }}
+                  >
+                    <Crosshair className="w-3 h-3 mr-1" /> Snap to my current location
+                  </Button>
                 )}
               </div>
             )}
@@ -753,7 +837,7 @@ export default function LiveMapPage() {
             <div>
               <h2 className="text-xl font-bold mb-1">Review & Submit</h2>
               <p className="text-sm text-muted-foreground">
-                Confirm the details below before submitting your event report.
+                Confirm the details below before submitting.
               </p>
             </div>
 
@@ -769,7 +853,7 @@ export default function LiveMapPage() {
                     {media.type === "image" ? (
                       <img src={media.preview} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <video src={media.preview} className="w-full h-full object-cover" muted playsInline />
+                      <video src={media.preview} className="w-full h-full object-cover" muted playsInline preload="metadata" />
                     )}
                     <div className="absolute bottom-0.5 left-0.5">
                       <span className={`inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold backdrop-blur-sm ${
@@ -827,7 +911,7 @@ export default function LiveMapPage() {
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                   locationMode === "current" ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600"
                 }`}>
-                  {locationMode === "current" ? "📍 GPS Pin" : "🗺️ Manual"}
+                  {locationMode === "current" ? "📍 GPS Pin" : "🗺️ Picked on Map"}
                 </span>
                 <span className="text-muted-foreground font-mono text-xs">
                   {eventLocation?.lat.toFixed(6)}, {eventLocation?.lon.toFixed(6)}
@@ -866,7 +950,7 @@ export default function LiveMapPage() {
       {showCamera && (
         <div className="fixed inset-0 bg-black z-[100] flex flex-col">
           <video
-            ref={videoRef}
+            ref={cameraVideoRef}
             autoPlay
             playsInline
             muted
@@ -881,7 +965,7 @@ export default function LiveMapPage() {
               >
                 <X className="w-6 h-6 text-white" />
               </button>
-              
+
               {cameraMode === "photo" ? (
                 <button
                   onClick={capturePhoto}
@@ -905,7 +989,7 @@ export default function LiveMapPage() {
                 </button>
               )}
 
-              <div className="w-12 h-12" /> {/* spacer */}
+              <div className="w-12 h-12" />
             </div>
             {/* Mode label */}
             <div className="text-center mt-4">
@@ -915,7 +999,7 @@ export default function LiveMapPage() {
             </div>
           </div>
 
-          {/* Status indicator */}
+          {/* Recording indicator */}
           {isRecording && (
             <div className="absolute top-6 left-1/2 -translate-x-1/2">
               <div className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-full">

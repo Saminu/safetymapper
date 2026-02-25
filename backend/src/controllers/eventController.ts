@@ -61,9 +61,7 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
     if (files && files.length > 0) {
       for (const file of files) {
         const isImage = file.mimetype.startsWith('image/');
-        const fileUrl = isImage
-          ? `/api/media/images/${file.filename}`
-          : `/api/videos/${file.filename}`;
+        const fileUrl = `/api/videos/${file.filename}`;
 
         media.push({
           url: fileUrl,
@@ -84,9 +82,7 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
     const singleFile = req.file as Express.Multer.File | undefined;
     if (singleFile && media.length === 0) {
       const isImage = singleFile.mimetype.startsWith('image/');
-      const fileUrl = isImage
-        ? `/api/media/images/${singleFile.filename}`
-        : `/api/videos/${singleFile.filename}`;
+      const fileUrl = `/api/videos/${singleFile.filename}`;
 
       media.push({
         url: fileUrl,
@@ -458,7 +454,7 @@ export const updateEvent = async (req: AuthRequest, res: Response): Promise<void
 };
 
 /**
- * Stream/serve a video file
+ * Stream/serve a media file (video or image)
  * GET /api/videos/:filename
  */
 export const streamVideo = async (req: Request, res: Response): Promise<void> => {
@@ -468,16 +464,46 @@ export const streamVideo = async (req: Request, res: Response): Promise<void> =>
 
     // Check if file exists
     if (!fs.existsSync(filePath)) {
-      res.status(404).json({ success: false, error: 'Video not found' });
+      res.status(404).json({ success: false, error: 'File not found' });
       return;
     }
 
     const stat = fs.statSync(filePath);
     const fileSize = stat.size;
-    const range = req.headers.range;
 
+    // Detect content type from extension
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mov': 'video/quicktime',
+      '.avi': 'video/x-msvideo',
+      '.mkv': 'video/x-matroska',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.heic': 'image/heic',
+      '.heif': 'image/heif',
+    };
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    const isImage = contentType.startsWith('image/');
+
+    // For images, just serve the file directly (no range support needed)
+    if (isImage) {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=86400',
+      });
+      fs.createReadStream(filePath).pipe(res);
+      return;
+    }
+
+    // For videos, support range requests for streaming
+    const range = req.headers.range;
     if (range) {
-      // Parse range header for streaming
       const parts = range.replace(/bytes=/, '').split('-');
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
@@ -489,22 +515,21 @@ export const streamVideo = async (req: Request, res: Response): Promise<void> =>
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunkSize,
-        'Content-Type': 'video/mp4',
+        'Content-Type': contentType,
       });
 
       file.pipe(res);
     } else {
-      // No range, send entire file
       res.writeHead(200, {
         'Content-Length': fileSize,
-        'Content-Type': 'video/mp4',
+        'Content-Type': contentType,
       });
 
       fs.createReadStream(filePath).pipe(res);
     }
   } catch (error) {
-    console.error('Video stream error:', error);
-    res.status(500).json({ success: false, error: 'Failed to stream video' });
+    console.error('Media stream error:', error);
+    res.status(500).json({ success: false, error: 'Failed to stream file' });
   }
 };
 
