@@ -110,21 +110,18 @@ export async function fetchCameraIntrinsics(): Promise<DevicesResponse> {
 
 export async function fetchEvents(
   request: AIEventsRequest,
-  apiKey?: string
+  _apiKey?: string
 ): Promise<AIEventsResponse> {
-  const key = apiKey || getApiKey();
+  const params = new URLSearchParams();
+  if (request.limit) params.append("limit", request.limit.toString());
+  if (request.offset) params.append("offset", request.offset.toString());
+  if (request.types && request.types.length > 0) params.append("category", request.types[0]);
 
-  if (!key) {
-    throw new Error("API key is required. Please configure your API key in settings.");
-  }
-
-  const response = await fetch("/api/events", {
-    method: "POST",
+  const response = await fetch(`/api/events?${params.toString()}`, {
+    method: "GET",
     headers: {
       "Content-Type": "application/json",
-      Authorization: key,
     },
-    body: JSON.stringify(request),
   });
 
   if (!response.ok) {

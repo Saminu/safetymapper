@@ -90,3 +90,4 @@ export const getCurrentSessionId = (): string | null => {
   return localStorage.getItem(STORAGE_KEYS.CURRENT_SESSION);
 };
 
+
