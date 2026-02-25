@@ -22,7 +22,7 @@ import {
   Construction,
   Car,
 } from "lucide-react";
-import { getAllMappers, getAllSessions, syncToServer } from "@/lib/storage";
+import { getAllMappers, getAllSessions } from "@/lib/storage";
 import { MapEvent } from "@/types/mapper";
 
 import { UserNav } from "@/components/layout/user-nav";
@@ -42,34 +42,10 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDemo, setIsLoadingDemo] = useState(false);
 
-  const loadDemoData = async () => {
-    setIsLoadingDemo(true);
-    try {
-      const response = await fetch("/api/demo-data", { method: "POST" });
-      if (response.ok) {
-        await fetchData(); // Refresh data after loading demo
-        alert("Demo data loaded! The dashboard now shows 5 active mappers with 3 live sessions.");
-      } else {
-        alert("Failed to load demo data");
-      }
-    } catch (error) {
-      console.error("Demo data error:", error);
-      alert("Error loading demo data");
-    } finally {
-      setIsLoadingDemo(false);
-    }
-  };
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Get local data first (instant)
-      const localMappers = getAllMappers();
-      const localSessions = getAllSessions();
-      
-      // Sync local data to server
-      await syncToServer();
-      
       // Fetch server data
       const [mappersRes, activeSessionsRes, allSessionsRes, statsRes] = await Promise.all([
         fetch("/api/mappers"), // Fetch all mappers
@@ -78,36 +54,14 @@ export default function DashboardPage() {
         fetch("/api/network-stats"),
       ]);
 
-      const mappersData = await mappersRes.json();
-      const activeSessionsData = await activeSessionsRes.json();
-      const allSessionsData = await allSessionsRes.json();
-      const statsData = await statsRes.json();
+      const mappersData = mappersRes.ok ? await mappersRes.json() : { mappers: [] };
+      const activeSessionsData = activeSessionsRes.ok ? await activeSessionsRes.json() : { sessions: [] };
+      const allSessionsData = allSessionsRes.ok ? await allSessionsRes.json() : { sessions: [] };
+      const statsData = statsRes.ok ? await statsRes.json() : { stats: null };
 
-      // Merge local and server data (deduplicate by ID)
-      const mergedMappers = [...localMappers];
-      (mappersData.mappers || []).forEach((serverMapper: Mapper) => {
-        if (!mergedMappers.find(m => m.id === serverMapper.id)) {
-          mergedMappers.push(serverMapper);
-        }
-      });
-      
-      const mergedActiveSessions = [...localSessions.filter(s => s.status === "ACTIVE")];
-      (activeSessionsData.sessions || []).forEach((serverSession: MappingSession) => {
-        if (!mergedActiveSessions.find(s => s.id === serverSession.id)) {
-          mergedActiveSessions.push(serverSession);
-        }
-      });
-      
-      const mergedAllSessions = [...localSessions];
-      (allSessionsData.sessions || []).forEach((serverSession: MappingSession) => {
-        if (!mergedAllSessions.find(s => s.id === serverSession.id)) {
-          mergedAllSessions.push(serverSession);
-        }
-      });
-
-      setMappers(mergedMappers);
-      setSessions(mergedActiveSessions);
-      setAllSessions(mergedAllSessions);
+      setMappers(mappersData.mappers || []);
+      setSessions(activeSessionsData.sessions || []);
+      setAllSessions(allSessionsData.sessions || []);
       setStats(statsData.stats || null);
     } catch (error) {
       console.error("Data fetch error:", error);
@@ -211,14 +165,6 @@ export default function DashboardPage() {
               <RefreshCw
                 className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
               />
-            </Button>
-            <Button
-              variant="outline"
-              onClick={loadDemoData}
-              disabled={isLoadingDemo}
-              className="hidden sm:flex"
-            >
-              {isLoadingDemo ? "Loading..." : "Load Demo Data"}
             </Button>
             <Button
               variant="outline"
@@ -383,64 +329,55 @@ export default function DashboardPage() {
                 ref={mapRef}
                 mappers={mapView === "live" ? liveMappers : mappers}
                 sessions={view === "events" ? [] : displaySessions}
-                events={view === "events" ? mapEvents : []}
+                events={mapEvents}
                 className="h-[600px] rounded-xl overflow-hidden"
               />
               
               {/* Map Legend */}
-              <Card className="absolute bottom-4 left-4 p-3 bg-background/95 backdrop-blur z-10">
+              <Card className="absolute bottom-4 left-4 p-3 bg-background/95 backdrop-blur z-10 w-44">
                 <div className="text-xs font-bold mb-2">MAP LEGEND</div>
-                <div className="space-y-1.5 text-xs">
-                  {view === "events" ? (
-                    <>
+                <div className="space-y-2 text-[10px]">
+                  {/* Mappers Section */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-orange-500 border border-white animate-pulse" />
+                      <span className="font-medium">Live Mapper</span>
+                    </div>
+                    {mapView === "all" && (
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500 border-2 border-white" />
-                        <span>Accident/SOS</span>
+                        <div className="w-2.5 h-2.5 rounded-full bg-gray-400 border border-white" />
+                        <span>Offline Mapper</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-0.5 bg-orange-500" />
+                      <span>{mapView === "live" ? "Live" : "Active"} Route</span>
+                    </div>
+                    {mapView === "all" && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-0.5 bg-blue-500" />
+                        <span>Completed</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t pt-1.5 mt-1.5">
+                    <div className="font-bold text-[9px] mb-1 opacity-70">SAFETY EVENTS</div>
+                    <div className="grid grid-cols-1 gap-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500 border border-white flex items-center justify-center text-[7px] text-white">⚠️</div>
+                        <span>Critical/Accident</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-amber-500 border-2 border-white" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-white flex items-center justify-center text-[7px] text-white">🚦</div>
                         <span>Traffic/Hazard</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white flex items-center justify-center text-[7px] text-white">👮</div>
                         <span>Police</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white" />
-                        <span>Road Work</span>
-                      </div>
-                    </>
-                  ) : mapView === "live" ? (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse" />
-                        <span>Live Mapper</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-0.5 bg-orange-500" />
-                        <span>Active Route</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white animate-pulse" />
-                        <span>Live Mapper</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-gray-400 border-2 border-white" />
-                        <span>Offline Mapper</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-0.5 bg-orange-500" />
-                        <span>Active Route</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-0.5 bg-blue-500" />
-                        <span>Completed Session</span>
-                      </div>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
               </Card>
             </div>

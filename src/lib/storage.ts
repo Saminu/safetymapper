@@ -13,22 +13,22 @@ const STORAGE_KEYS = {
 // Mapper Storage
 export const saveMapper = (mapper: Mapper) => {
   if (typeof window === "undefined") return;
-  
+
   const mappers = getAllMappers();
   const index = mappers.findIndex(m => m.id === mapper.id);
-  
+
   if (index >= 0) {
     mappers[index] = mapper;
   } else {
     mappers.push(mapper);
   }
-  
+
   localStorage.setItem(STORAGE_KEYS.MAPPERS, JSON.stringify(mappers));
 };
 
 export const getAllMappers = (): Mapper[] => {
   if (typeof window === "undefined") return [];
-  
+
   const data = localStorage.getItem(STORAGE_KEYS.MAPPERS);
   return data ? JSON.parse(data) : [];
 };
@@ -41,22 +41,22 @@ export const getMapper = (id: string): Mapper | null => {
 // Session Storage
 export const saveSession = (session: MappingSession) => {
   if (typeof window === "undefined") return;
-  
+
   const sessions = getAllSessions();
   const index = sessions.findIndex(s => s.id === session.id);
-  
+
   if (index >= 0) {
     sessions[index] = session;
   } else {
     sessions.push(session);
   }
-  
+
   localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
 };
 
 export const getAllSessions = (): MappingSession[] => {
   if (typeof window === "undefined") return [];
-  
+
   const data = localStorage.getItem(STORAGE_KEYS.SESSIONS);
   return data ? JSON.parse(data) : [];
 };
@@ -77,7 +77,7 @@ export const getCompletedSessions = (): MappingSession[] => {
 // Current Session (for active mapping)
 export const setCurrentSession = (sessionId: string | null) => {
   if (typeof window === "undefined") return;
-  
+
   if (sessionId) {
     localStorage.setItem(STORAGE_KEYS.CURRENT_SESSION, sessionId);
   } else {
@@ -90,20 +90,3 @@ export const getCurrentSessionId = (): string | null => {
   return localStorage.getItem(STORAGE_KEYS.CURRENT_SESSION);
 };
 
-// Sync data to server (for multi-device support in future)
-export const syncToServer = async () => {
-  if (typeof window === "undefined") return;
-  
-  const mappers = getAllMappers();
-  const sessions = getAllSessions();
-  
-  try {
-    await fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mappers, sessions }),
-    });
-  } catch (error) {
-    console.error("Sync error:", error);
-  }
-};

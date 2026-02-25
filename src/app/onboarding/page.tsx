@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { VehicleType, OnboardingData } from "@/types/mapper";
 import { ArrowRight, CheckCircle2, MapPin, Smartphone, Wallet } from "lucide-react";
-import { saveMapper, syncToServer } from "@/lib/storage";
+import { saveMapper } from "@/lib/storage";
 
 const VEHICLE_TYPES: { value: VehicleType; label: string }[] = [
   { value: "TAXI_MAX_RIDES", label: "Taxi (Max Rides)" },
@@ -74,9 +74,6 @@ export default function OnboardingPage() {
       
       // Save mapper to local storage
       saveMapper(mapper);
-      
-      // Sync to server
-      await syncToServer();
       
       // Redirect to dashboard where they can start mapping
       router.push("/dashboard");
