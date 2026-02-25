@@ -13,20 +13,37 @@ if (!fs.existsSync(uploadDir)) {
 // Sub-directories
 const videosDir = path.join(uploadDir, 'videos');
 const thumbnailsDir = path.join(uploadDir, 'thumbnails');
+const imagesDir = path.join(uploadDir, 'images');
 
-[videosDir, thumbnailsDir].forEach((dir) => {
+[videosDir, thumbnailsDir, imagesDir].forEach((dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 });
 
-// Storage configuration
-const storage = multer.diskStorage({
+// Storage configuration for videos
+const videoStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     cb(null, videosDir);
   },
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname) || '.mp4';
+    const filename = `${uuidv4()}${ext}`;
+    cb(null, filename);
+  },
+});
+
+// Storage configuration for mixed media (images + videos)
+const mediaStorage = multer.diskStorage({
+  destination: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, imagesDir);
+    } else {
+      cb(null, videosDir);
+    }
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || (file.mimetype.startsWith('image/') ? '.jpg' : '.mp4');
     const filename = `${uuidv4()}${ext}`;
     cb(null, filename);
   },
@@ -54,9 +71,39 @@ const videoFileFilter = (
   }
 };
 
-// Multer instance for video uploads
+// File filter - allow both images and videos
+const mediaFileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  cb: multer.FileFilterCallback
+) => {
+  const allowedMimeTypes = [
+    // Videos
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'video/x-msvideo',
+    'video/x-matroska',
+    'video/mpeg',
+    // Images
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/heic',
+    'image/heif',
+  ];
+
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type: ${file.mimetype}. Only image and video files are allowed.`));
+  }
+};
+
+// Multer instance for single video uploads (legacy)
 export const videoUpload = multer({
-  storage,
+  storage: videoStorage,
   fileFilter: videoFileFilter,
   limits: {
     fileSize: config.upload.maxVideoSizeMB * 1024 * 1024, // Convert MB to bytes
@@ -64,5 +111,15 @@ export const videoUpload = multer({
   },
 });
 
+// Multer instance for multiple media uploads (up to 5 files: images + videos)
+export const mediaUpload = multer({
+  storage: mediaStorage,
+  fileFilter: mediaFileFilter,
+  limits: {
+    fileSize: config.upload.maxVideoSizeMB * 1024 * 1024,
+    files: 5,
+  },
+});
+
 // Export directories for other modules
-export { uploadDir, videosDir, thumbnailsDir };
+export { uploadDir, videosDir, thumbnailsDir, imagesDir };

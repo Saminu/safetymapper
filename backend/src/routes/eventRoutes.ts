@@ -8,9 +8,10 @@ import {
   updateEvent,
   deleteEvent,
   streamVideo,
+  serveImage,
 } from '../controllers/eventController';
 import { authenticate, optionalAuth } from '../middleware/auth';
-import { videoUpload } from '../middleware/upload';
+import { videoUpload, mediaUpload } from '../middleware/upload';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.get('/recent', getRecentEvents);
 router.get('/:id', getEventById);
 
 // ── Protected Routes ───────────────────────────────────
-router.post('/', authenticate, videoUpload.single('video'), createEvent);
+router.post('/', authenticate, mediaUpload.array('media', 5), createEvent);
 router.post('/:id/update', authenticate, videoUpload.single('video'), updateEvent);
 router.delete('/:id', authenticate, deleteEvent);
 
@@ -30,3 +31,7 @@ export default router;
 // ── Video streaming route (exported separately) ────────
 export const videoRouter = Router();
 videoRouter.get('/:filename', streamVideo);
+
+// ── Image serving route (exported separately) ──────────
+export const imageRouter = Router();
+imageRouter.get('/:filename', serveImage);

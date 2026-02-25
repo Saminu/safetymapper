@@ -1,5 +1,12 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+export interface IMediaItem {
+  url: string;
+  key: string;
+  type: 'image' | 'video';
+  sourceType: 'CAPTURED' | 'UPLOADED'; // CAPTURED = in-app camera, UPLOADED = camera roll
+}
+
 export interface IEvent extends Document {
   _id: mongoose.Types.ObjectId;
   category: string;
@@ -14,7 +21,8 @@ export interface IEvent extends Document {
   severity: string;
   status: string;
   videoUrl?: string;
-  videoKey?: string; // GridFS file ID or storage key
+  videoKey?: string; // GridFS file ID or storage key (legacy single video)
+  media: IMediaItem[]; // New: array of media items
   thumbnailUrl?: string;
   reporterId: mongoose.Types.ObjectId;
   reporterName: string;
@@ -34,6 +42,31 @@ export interface IEvent extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+const mediaItemSchema = new Schema(
+  {
+    url: {
+      type: String,
+      required: true,
+    },
+    key: {
+      type: String,
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: ['image', 'video'],
+      required: true,
+    },
+    sourceType: {
+      type: String,
+      enum: ['CAPTURED', 'UPLOADED'],
+      required: true,
+      default: 'UPLOADED',
+    },
+  },
+  { _id: true }
+);
 
 const eventUpdateSchema = new Schema(
   {
@@ -103,9 +136,9 @@ const eventSchema = new Schema<IEvent>(
     },
     description: {
       type: String,
-      required: [true, 'Event description is required'],
       trim: true,
       maxlength: 1000,
+      default: '',
     },
     location: {
       lat: {
@@ -130,6 +163,16 @@ const eventSchema = new Schema<IEvent>(
     },
     videoUrl: String,
     videoKey: String,
+    media: {
+      type: [mediaItemSchema],
+      default: [],
+      validate: {
+        validator: function (v: IMediaItem[]) {
+          return v.length <= 5;
+        },
+        message: 'Maximum 5 media items allowed per event',
+      },
+    },
     thumbnailUrl: String,
     reporterId: {
       type: Schema.Types.ObjectId,

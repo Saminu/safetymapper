@@ -116,68 +116,37 @@ export default function DashboardPage() {
     }
   };
 
-  const generateDummyEvents = () => {
-    const dummyEvents: MapEvent[] = [
-      {
-        id: "evt-1",
-        type: "ACCIDENT",
-        location: { lat: 6.5244, lon: 3.3792 },
-        description: "Minor collision involving two vehicles",
-        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
-        severity: "MEDIUM",
-        verified: true,
-      },
-      {
-        id: "evt-2",
-        type: "TRAFFIC",
-        location: { lat: 6.5500, lon: 3.3500 },
-        description: "Heavy congestion due to broken down truck",
-        timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-        severity: "HIGH",
-        verified: true,
-      },
-      {
-        id: "evt-3",
-        type: "ROAD_WORK",
-        location: { lat: 6.4500, lon: 3.4000 },
-        description: "Road maintenance on Third Mainland Bridge",
-        timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-        severity: "LOW",
-        verified: true,
-      },
-      {
-        id: "evt-4",
-        type: "POLICE",
-        location: { lat: 6.6000, lon: 3.3000 },
-        description: "Checkpoint operation",
-        timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-        severity: "MEDIUM",
-        verified: false,
-      },
-      {
-        id: "evt-5",
-        type: "HAZARD",
-        location: { lat: 6.5000, lon: 3.3800 },
-        description: "Flooded road section",
-        timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-        severity: "HIGH",
-        verified: true,
-      },
-      {
-        id: "evt-6",
-        type: "TRAFFIC",
-        location: { lat: 6.5100, lon: 3.3600 },
-        description: "Old traffic report (should not appear on map)",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 25).toISOString(), // 25 hours ago
-        severity: "LOW",
-        verified: true,
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch("/api/events/active");
+      if (response.ok) {
+        const data = await response.json();
+        const mapped: MapEvent[] = (data.events || []).map((e: any) => ({
+          id: e.id || e._id,
+          type: e.category || e.type,
+          category: e.category,
+          customCategory: e.customCategory,
+          title: e.title,
+          location: e.location,
+          description: e.description || "",
+          timestamp: e.createdAt || e.timestamp,
+          reporterName: e.reporterName,
+          severity: e.severity || "MEDIUM",
+          verified: e.verified ?? false,
+          videoUrl: e.videoUrl,
+          media: e.media || [],
+        }));
+        setEvents(mapped);
       }
-    ];
-    setEvents(dummyEvents);
+    } catch (error) {
+      console.error("Events fetch error:", error);
+    }
   };
 
   useEffect(() => {
-    generateDummyEvents();
+    fetchEvents();
+    const interval = setInterval(fetchEvents, 15000); // Refresh every 15s
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -262,7 +231,7 @@ export default function DashboardPage() {
                 onClick={() => router.push("/live-map")}
                 className="bg-orange-500 hover:bg-orange-600"
               >
-                START MAPPING
+                REPORT EVENT
               </Button>
             )}
             <UserNav />
@@ -493,9 +462,10 @@ export default function DashboardPage() {
                       }}
                     >
                       <div className={`p-2 rounded-full shrink-0 ${
-                        event.type === 'ACCIDENT' || event.type === 'SOS' ? 'bg-red-100 text-red-600' :
-                        event.type === 'TRAFFIC' || event.type === 'HAZARD' ? 'bg-amber-100 text-amber-600' :
-                        event.type === 'POLICE' ? 'bg-blue-100 text-blue-600' :
+                        event.type === 'ACCIDENT' || event.type === 'SOS' || event.type === 'FIRE' ? 'bg-red-100 text-red-600' :
+                        event.type === 'TRAFFIC' || event.type === 'HAZARD' || event.type === 'RAIN' ? 'bg-amber-100 text-amber-600' :
+                        event.type === 'POLICE' || event.type === 'FLOOD' ? 'bg-blue-100 text-blue-600' :
+                        event.type === 'PROTEST' ? 'bg-purple-100 text-purple-600' :
                         'bg-orange-100 text-orange-600'
                       }`}>
                         {event.type === 'ACCIDENT' && <Siren className="w-5 h-5" />}
@@ -504,10 +474,15 @@ export default function DashboardPage() {
                         {event.type === 'HAZARD' && <AlertTriangle className="w-5 h-5" />}
                         {event.type === 'ROAD_WORK' && <Construction className="w-5 h-5" />}
                         {event.type === 'SOS' && <Siren className="w-5 h-5" />}
+                        {event.type === 'FLOOD' && <AlertTriangle className="w-5 h-5" />}
+                        {event.type === 'RAIN' && <AlertTriangle className="w-5 h-5" />}
+                        {event.type === 'FIRE' && <AlertTriangle className="w-5 h-5" />}
+                        {event.type === 'PROTEST' && <AlertTriangle className="w-5 h-5" />}
+                        {event.type === 'OTHER' && <AlertTriangle className="w-5 h-5" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-bold">{event.type.replace(/_/g, " ")}</h4>
+                          <h4 className="font-bold">{event.type === 'OTHER' && event.customCategory ? event.customCategory : event.type.replace(/_/g, " ")}</h4>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${
                             event.severity === 'CRITICAL' ? 'bg-red-500 text-white' :
                             event.severity === 'HIGH' ? 'bg-orange-500 text-white' :

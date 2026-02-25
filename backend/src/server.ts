@@ -11,7 +11,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 // Route imports
 import authRoutes from './routes/authRoutes';
-import eventRoutes, { videoRouter } from './routes/eventRoutes';
+import eventRoutes, { videoRouter, imageRouter } from './routes/eventRoutes';
 import mapperRoutes from './routes/mapperRoutes';
 import sessionRoutes from './routes/sessionRoutes';
 import adminRoutes from './routes/adminRoutes';
@@ -65,6 +65,7 @@ app.use('/uploads', express.static(path.resolve(config.upload.dir)));
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/videos', videoRouter);
+app.use('/api/media/images', imageRouter);
 app.use('/api/mappers', mapperRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/admin', adminRoutes);

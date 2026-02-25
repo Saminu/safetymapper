@@ -155,8 +155,8 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
             activeSession
               ? `
             <div style="font-size: 12px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #eee;">
-              <div>Distance: ${activeSession.distance.toFixed(2)} km</div>
-              <div>Tokens: ${activeSession.tokensEarned.toFixed(2)}</div>
+              <div>Distance: ${(activeSession.distance ?? 0).toFixed(2)} km</div>
+              <div>Tokens: ${(activeSession.tokensEarned ?? 0).toFixed(2)}</div>
             </div>
           `
               : ""
@@ -243,9 +243,9 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
                   <div style="padding: 8px; min-width: 180px;">
                     <div style="font-weight: bold; margin-bottom: 4px; color: #3b82f6;">Completed Session</div>
                     <div style="font-size: 12px; color: #666;">
-                      <div>Distance: ${session.distance.toFixed(2)} km</div>
-                      <div>Tokens: ${session.tokensEarned.toFixed(2)}</div>
-                      <div>Duration: ${session.duration} min</div>
+                      <div>Distance: ${(session.distance ?? 0).toFixed(2)} km</div>
+                      <div>Tokens: ${(session.tokensEarned ?? 0).toFixed(2)}</div>
+                      <div>Duration: ${session.duration ?? 0} min</div>
                     </div>
                   </div>
                 `)
@@ -275,30 +275,51 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
       let icon = "⚠️";
       let color = "#ef4444"; // red-500
       
-      switch(event.type) {
+      const eventType = event.type || event.category || "";
+      switch(eventType) {
         case "ACCIDENT":
           icon = "💥";
           color = "#ef4444";
           break;
         case "TRAFFIC":
           icon = "🚦";
-          color = "#f59e0b"; // amber-500
+          color = "#f59e0b";
           break;
         case "POLICE":
           icon = "👮";
-          color = "#3b82f6"; // blue-500
+          color = "#3b82f6";
           break;
         case "HAZARD":
           icon = "⚠️";
-          color = "#eab308"; // yellow-500
+          color = "#eab308";
           break;
         case "ROAD_WORK":
           icon = "🚧";
-          color = "#f97316"; // orange-500
+          color = "#f97316";
+          break;
+        case "FLOOD":
+          icon = "🌊";
+          color = "#0ea5e9";
+          break;
+        case "RAIN":
+          icon = "🌧️";
+          color = "#6366f1";
+          break;
+        case "FIRE":
+          icon = "🔥";
+          color = "#dc2626";
+          break;
+        case "PROTEST":
+          icon = "📢";
+          color = "#a855f7";
           break;
         case "SOS":
           icon = "🆘";
-          color = "#dc2626"; // red-600
+          color = "#dc2626";
+          break;
+        case "OTHER":
+          icon = "📋";
+          color = "#6b7280";
           break;
       }
 
@@ -319,23 +340,106 @@ export const MapperMap = forwardRef<MapperMapRef, MapperMapProps>(({
       
       el.innerHTML = icon;
 
+      // Build media section HTML
+      let mediaHtml = "";
+      const mediaItems = event.media || [];
+      if (mediaItems.length > 0) {
+        const mediaItemsHtml = mediaItems.map((m) => {
+          const isVideo = m.type === "video";
+          const isCaptured = m.sourceType === "CAPTURED";
+          const badgeColor = isCaptured ? "#22c55e" : "#f59e0b";
+          const badgeLabel = isCaptured ? "📸 Live" : "📤 Upload";
+          const tooltipText = isCaptured
+            ? "Captured live in the app at the time of the event"
+            : "Uploaded from device gallery / camera roll";
+          
+          return `
+            <div style="position: relative; width: 80px; height: 60px; border-radius: 6px; overflow: hidden; flex-shrink: 0; border: 1px solid #e5e7eb;">
+              ${isVideo
+                ? `<video src="${m.url}" style="width:100%;height:100%;object-fit:cover;" muted playsinline></video>`
+                : `<img src="${m.url}" style="width:100%;height:100%;object-fit:cover;" alt="event media" />`
+              }
+              <div style="position:absolute;bottom:2px;left:2px;" title="${tooltipText}">
+                <span style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 2px;
+                  padding: 1px 4px;
+                  border-radius: 4px;
+                  font-size: 8px;
+                  font-weight: 700;
+                  background: ${badgeColor}cc;
+                  color: white;
+                  backdrop-filter: blur(4px);
+                  cursor: help;
+                ">${badgeLabel}</span>
+              </div>
+              ${isVideo ? `<div style="position:absolute;top:2px;right:2px;">
+                <span style="
+                  display: inline-flex;
+                  padding: 1px 3px;
+                  border-radius: 3px;
+                  font-size: 7px;
+                  font-weight: 700;
+                  background: #7c3aedcc;
+                  color: white;
+                ">▶ VID</span>
+              </div>` : ""}
+            </div>`;
+        }).join("");
+
+        mediaHtml = `
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e7eb;">
+            <div style="display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px;">
+              ${mediaItemsHtml}
+            </div>
+          </div>`;
+      } else if (event.videoUrl) {
+        // Legacy single video
+        mediaHtml = `
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e5e7eb;">
+            <video src="${event.videoUrl}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;" controls muted playsinline></video>
+          </div>`;
+      }
+
+      const displayType = eventType === "OTHER" && event.customCategory 
+        ? event.customCategory 
+        : eventType.replace(/_/g, " ");
+
       const popup = new mapboxgl.Popup({
         offset: 25,
-        closeButton: false,
+        closeButton: true,
         className: "event-popup",
+        maxWidth: "320px",
       }).setHTML(`
-        <div style="padding: 8px; min-width: 180px;">
-          <div style="font-weight: bold; margin-bottom: 4px; color: ${color};">
-            ${event.type.replace(/_/g, " ")}
+        <div style="padding: 10px; min-width: 200px; max-width: 300px;">
+          <div style="font-weight: bold; margin-bottom: 4px; color: ${color}; font-size: 13px;">
+            ${icon} ${displayType}
           </div>
-          <div style="font-size: 12px; font-weight: 500; margin-bottom: 4px;">
+          ${event.description ? `<div style="font-size: 12px; font-weight: 500; margin-bottom: 6px; color: #374151;">
             ${event.description}
+          </div>` : ""}
+          ${event.reporterName ? `<div style="font-size: 10px; color: #9ca3af; margin-bottom: 4px;">
+            Reported by: ${event.reporterName}
+          </div>` : ""}
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 10px; color: #6b7280;">
+            <span style="
+              display: inline-flex;
+              padding: 1px 6px;
+              border-radius: 9999px;
+              font-weight: 700;
+              font-size: 9px;
+              color: white;
+              background: ${
+                event.severity === "CRITICAL" ? "#ef4444" :
+                event.severity === "HIGH" ? "#f97316" :
+                event.severity === "MEDIUM" ? "#eab308" :
+                "#3b82f6"
+              };
+            ">${event.severity}</span>
+            <span>${new Date(event.timestamp).toLocaleTimeString()}</span>
           </div>
-          <div style="font-size: 10px; color: #666;">
-            Severity: ${event.severity}
-            <br/>
-            ${new Date(event.timestamp).toLocaleTimeString()}
-          </div>
+          ${mediaHtml}
         </div>
       `);
 

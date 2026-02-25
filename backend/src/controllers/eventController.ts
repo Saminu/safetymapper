@@ -1,15 +1,15 @@
 import { Request, Response } from 'express';
-import Event from '../models/Event';
+import Event, { IMediaItem } from '../models/Event';
 import Mapper from '../models/Mapper';
 import Transaction from '../models/Transaction';
 import { AuthRequest } from '../types';
 import { isWithinRadius } from '../utils/helpers';
 import path from 'path';
 import fs from 'fs';
-import { videosDir } from '../middleware/upload';
+import { videosDir, imagesDir } from '../middleware/upload';
 
 /**
- * Create a new event (with optional video upload) 
+ * Create a new event (with optional multiple media uploads) 
  * POST /api/events
  */
 export const createEvent = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -19,13 +19,13 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const { category, customCategory, title, description, lat, lon, address, severity } = req.body;
+    const { category, customCategory, title, description, lat, lon, address, severity, sourceType } = req.body;
 
     // Validate required fields
-    if (!category || !title || !description || lat === undefined || lon === undefined) {
+    if (!category || !title || lat === undefined || lon === undefined) {
       res.status(400).json({
         success: false,
-        error: 'Category, title, description, latitude, and longitude are required',
+        error: 'Category, title, latitude, and longitude are required',
       });
       return;
     }
@@ -50,19 +50,62 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       if (user) reporterName = user.name;
     }
 
-    // Handle video file
-    let videoUrl: string | undefined;
-    let videoKey: string | undefined;
-    if (req.file) {
-      videoKey = req.file.filename;
-      videoUrl = `/api/videos/${req.file.filename}`;
+    // Handle media files (multiple)
+    const media: IMediaItem[] = [];
+    let legacyVideoUrl: string | undefined;
+    let legacyVideoKey: string | undefined;
+
+    const files = req.files as Express.Multer.File[] | undefined;
+    const mediaSourceType = sourceType || 'UPLOADED'; // Default to UPLOADED
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const isImage = file.mimetype.startsWith('image/');
+        const fileUrl = isImage
+          ? `/api/media/images/${file.filename}`
+          : `/api/videos/${file.filename}`;
+
+        media.push({
+          url: fileUrl,
+          key: file.filename,
+          type: isImage ? 'image' : 'video',
+          sourceType: mediaSourceType,
+        });
+
+        // Set legacy video fields for backward compatibility (first video)
+        if (!isImage && !legacyVideoUrl) {
+          legacyVideoUrl = fileUrl;
+          legacyVideoKey = file.filename;
+        }
+      }
+    }
+
+    // Also handle single file upload (legacy support)
+    const singleFile = req.file as Express.Multer.File | undefined;
+    if (singleFile && media.length === 0) {
+      const isImage = singleFile.mimetype.startsWith('image/');
+      const fileUrl = isImage
+        ? `/api/media/images/${singleFile.filename}`
+        : `/api/videos/${singleFile.filename}`;
+
+      media.push({
+        url: fileUrl,
+        key: singleFile.filename,
+        type: isImage ? 'image' : 'video',
+        sourceType: mediaSourceType,
+      });
+
+      if (!isImage) {
+        legacyVideoUrl = fileUrl;
+        legacyVideoKey = singleFile.filename;
+      }
     }
 
     const event = await Event.create({
       category,
       customCategory: category === 'OTHER' ? customCategory : undefined,
       title,
-      description,
+      description: description || '',
       location: {
         lat: parseFloat(lat),
         lon: parseFloat(lon),
@@ -70,8 +113,9 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
       },
       severity: severity || 'MEDIUM',
       status: 'ACTIVE',
-      videoUrl,
-      videoKey,
+      videoUrl: legacyVideoUrl,
+      videoKey: legacyVideoKey,
+      media,
       reporterId: req.user.id,
       reporterName,
       reporterRole: req.user.role,
@@ -110,6 +154,7 @@ export const createEvent = async (req: AuthRequest, res: Response): Promise<void
         severity: event.severity,
         status: event.status,
         videoUrl: event.videoUrl,
+        media: event.media,
         reporterName: event.reporterName,
         reporterRole: event.reporterRole,
         verified: event.verified,
@@ -222,6 +267,7 @@ export const getActiveEvents = async (req: Request, res: Response): Promise<void
         severity: event.severity,
         status: event.status,
         videoUrl: event.videoUrl,
+        media: event.media || [],
         reporterName: event.reporterName,
         verified: event.verified,
         updatesCount: event.updates?.length || 0,
@@ -277,6 +323,7 @@ export const getRecentEvents = async (req: Request, res: Response): Promise<void
         severity: event.severity,
         status: event.status,
         videoUrl: event.videoUrl,
+        media: event.media || [],
         reporterName: event.reporterName,
         reporterRole: event.reporterRole,
         verified: event.verified,
@@ -462,6 +509,43 @@ export const streamVideo = async (req: Request, res: Response): Promise<void> =>
 };
 
 /**
+ * Serve an image file
+ * GET /api/media/images/:filename
+ */
+export const serveImage = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const filename = req.params.filename as string;
+    const filePath = path.join(imagesDir, filename);
+
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ success: false, error: 'Image not found' });
+      return;
+    }
+
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.heic': 'image/heic',
+      '.heif': 'image/heif',
+    };
+
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    fs.createReadStream(filePath).pipe(res);
+  } catch (error) {
+    console.error('Image serve error:', error);
+    res.status(500).json({ success: false, error: 'Failed to serve image' });
+  }
+};
+
+/**
  * Delete an event (only the reporter or admin can delete)
  * DELETE /api/events/:id
  */
@@ -485,11 +569,22 @@ export const deleteEvent = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    // Delete associated video file
+    // Delete associated video file (legacy)
     if (event.videoKey) {
       const filePath = path.join(videosDir, event.videoKey);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
+      }
+    }
+
+    // Delete associated media files
+    if (event.media) {
+      for (const item of event.media) {
+        const dir = item.type === 'image' ? imagesDir : videosDir;
+        const filePath = path.join(dir, item.key);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
       }
     }
 

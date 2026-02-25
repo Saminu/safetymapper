@@ -96,11 +96,26 @@ export type MapEventType =
   | "POLICE"
   | "HAZARD"
   | "ROAD_WORK"
-  | "SOS";
+  | "FLOOD"
+  | "RAIN"
+  | "FIRE"
+  | "PROTEST"
+  | "SOS"
+  | "OTHER";
+
+export interface MediaItem {
+  url: string;
+  key: string;
+  type: "image" | "video";
+  sourceType: "CAPTURED" | "UPLOADED"; // CAPTURED = in-app camera, UPLOADED = camera roll
+}
 
 export interface MapEvent {
   id: string;
   type: MapEventType;
+  category?: string; // Backend uses "category" field
+  customCategory?: string; // When type/category is OTHER
+  title?: string;
   location: {
     lat: number;
     lon: number;
@@ -108,7 +123,10 @@ export interface MapEvent {
   description: string;
   timestamp: string;
   reporterId?: string;
+  reporterName?: string;
   severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   verified: boolean;
   imageUrl?: string;
+  videoUrl?: string;
+  media?: MediaItem[];
 }
