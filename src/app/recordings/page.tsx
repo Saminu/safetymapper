@@ -17,7 +17,7 @@ import {
   Video,
   RefreshCw,
 } from "lucide-react";
-import { getAllMappers, getAllSessions, syncToServer } from "@/lib/storage";
+import { getAllMappers, getAllSessions } from "@/lib/storage";
 
 export default function RecordingsPage() {
   const router = useRouter();
@@ -33,9 +33,7 @@ export default function RecordingsPage() {
       const localMappers = getAllMappers();
       const localSessions = getAllSessions();
       
-      // Sync to server
-      await syncToServer();
-      
+
       // Fetch server data
       const [sessionsRes, mappersRes] = await Promise.all([
         fetch("/api/sessions"),

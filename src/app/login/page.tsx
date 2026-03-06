@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { saveMapper, syncToServer } from "@/lib/storage";
+import { saveMapper } from "@/lib/storage";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,9 +42,7 @@ export default function LoginPage() {
       // Save mapper to local storage
       saveMapper(mapper);
       
-      // Sync to server
-      await syncToServer();
-      
+
       // Redirect to dashboard where they can start mapping
       router.push("/dashboard");
     } catch (error) {

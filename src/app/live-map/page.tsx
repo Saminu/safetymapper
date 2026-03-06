@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   Plus,
   Send,
+  Search,
 } from "lucide-react";
 import { MapEventType } from "@/types/mapper";
 
@@ -95,6 +96,10 @@ export default function LiveMapPage() {
   const pickerMapContainerRef = useRef<HTMLDivElement>(null);
   const pickerMapRef = useRef<mapboxgl.Map | null>(null);
   const pickerMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Step index helper
   const currentStepIndex = STEPS.findIndex((s) => s.key === step);
@@ -200,6 +205,55 @@ export default function LiveMapPage() {
       pickerMarkerRef.current = null;
     };
   }, [locationMode, step]);
+
+  // Geocoding Search
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+        // Search across Nigeria, prioritizing current location
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${token}&proximity=${currentLocation?.lon || 3.3792},${currentLocation?.lat || 6.5244}&country=ng&types=place,address,poi,neighborhood`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        setSuggestions(data.features || []);
+      } catch (error) {
+        console.error("Geocoding error:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500);
+  };
+
+  const selectSuggestion = (feature: any) => {
+    const [lon, lat] = feature.center;
+    const loc = { lat, lon };
+    
+    setEventLocation(loc);
+    setSearchQuery(feature.place_name);
+    setSuggestions([]);
+
+    if (pickerMarkerRef.current) {
+      pickerMarkerRef.current.setLngLat([lon, lat]);
+    }
+    
+    if (pickerMapRef.current) {
+      pickerMapRef.current.flyTo({
+        center: [lon, lat],
+        zoom: 16,
+        essential: true
+      });
+    }
+  };
 
   // Camera functions
   const startCamera = useCallback(async () => {
@@ -719,12 +773,6 @@ export default function LiveMapPage() {
                 onClick={() => {
                   setLocationMode("current");
                   if (currentLocation) setEventLocation(currentLocation);
-                  // Cleanup picker map
-                  if (pickerMapRef.current) {
-                    pickerMapRef.current.remove();
-                    pickerMapRef.current = null;
-                    pickerMarkerRef.current = null;
-                  }
                 }}
                 className={`p-4 rounded-xl border-2 transition-all ${
                   locationMode === "current"
@@ -782,6 +830,41 @@ export default function LiveMapPage() {
             {/* Map location picker */}
             {locationMode === "pick" && (
               <div className="space-y-3">
+                {/* Search Bar */}
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      className="w-full bg-background border-2 rounded-xl py-2.5 pl-9 pr-4 text-sm focus:border-orange-500 focus:outline-none transition-colors"
+                      placeholder="Search for an area or street..."
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                    />
+                    {isSearching && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+                    )}
+                  </div>
+
+                  {/* Suggestions Dropdown */}
+                  {suggestions.length > 0 && (
+                    <Card className="absolute top-full left-0 right-0 mt-1 z-[60] overflow-hidden max-h-[200px] overflow-y-auto shadow-xl border-orange-500/20">
+                      <div className="divide-y">
+                        {suggestions.map((feature) => (
+                          <button
+                            key={feature.id}
+                            className="w-full text-left p-3 hover:bg-muted transition-colors text-sm flex flex-col gap-0.5"
+                            onClick={() => selectSuggestion(feature)}
+                          >
+                            <span className="font-semibold text-foreground line-clamp-1">{feature.text}</span>
+                            <span className="text-xs text-muted-foreground line-clamp-1">{feature.place_name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+                </div>
+
                 {/* Interactive Map */}
                 <Card className="overflow-hidden">
                   <div className="relative">
