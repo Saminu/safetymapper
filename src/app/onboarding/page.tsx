@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -87,26 +88,37 @@ export default function OnboardingPage() {
 
   if (step === "intro") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted">
-        <div className="container mx-auto px-4 py-12">
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted relative">
+        {/* Navbar */}
+        <div className="absolute top-0 left-0 w-full p-4 md:p-6 z-10">
+          <div className="container mx-auto">
+            <Link href="/" className="inline-block">
+              <span className="text-2xl md:text-3xl font-bold">
+                SAFETY<span className="text-orange-500">MAP</span>
+              </span>
+            </Link>
+          </div>
+        </div>
+
+        <div className="container mx-auto px-4 py-20 md:py-24">
           {/* Hero Section */}
-          <div className="text-center mb-16">
-            <h1 className="text-5xl font-bold mb-4">
+          <div className="text-center mb-10 md:mb-16">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4">
               POWER THE <span className="text-orange-500">SAFETY MAP.</span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-6 md:mb-8">
               Lagos streets move fast. Provide the live data the network needs to
               navigate safely. Mount your device, map your route, and monetize
               your movement.
             </p>
-            <div className="flex gap-4 justify-center">
-              <Button size="lg" onClick={() => setStep("form")} className="bg-orange-500 hover:bg-orange-600">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
+              <Button size="lg" onClick={() => setStep("form")} className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-base md:text-lg h-12 md:h-14 px-6 md:px-8">
                 BECOME A MAPPER
               </Button>
-              <Button size="lg" variant="outline" onClick={() => router.push("/login")} className="border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950">
+              <Button size="lg" variant="outline" onClick={() => router.push("/login")} className="w-full sm:w-auto border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950 text-base md:text-lg h-12 md:h-14 px-6 md:px-8">
                 LOG IN
               </Button>
-              <Button size="lg" variant="outline" onClick={() => router.push("/")}>
+              <Button size="lg" variant="outline" onClick={() => router.push("/")} className="w-full sm:w-auto text-base md:text-lg h-12 md:h-14 px-6 md:px-8">
                 VIEW MAPPER GRID
               </Button>
             </div>
@@ -170,7 +182,17 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-b from-background to-muted flex items-center justify-center p-4 pt-20 relative">
+      {/* Navbar */}
+      <div className="absolute top-0 left-0 w-full p-4 md:p-6 z-10">
+        <div className="container mx-auto">
+          <Link href="/" className="inline-block">
+            <span className="text-2xl md:text-3xl font-bold">
+              SAFETY<span className="text-orange-500">MAP</span>
+            </span>
+          </Link>
+        </div>
+      </div>
       <Card className="max-w-lg w-full p-8">
         <h2 className="text-3xl font-bold mb-2">Join the Network</h2>
         <p className="text-muted-foreground mb-6">

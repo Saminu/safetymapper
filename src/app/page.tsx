@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,10 @@ import {
   Smartphone,
   Wallet,
   ArrowRight,
+  Menu,
+  X,
+  LayoutGrid,
+  Film,
 } from "lucide-react";
 import { UserNav } from "@/components/layout/user-nav";
 
@@ -27,6 +31,30 @@ function HomeContent() {
   const [sessions, setSessions] = useState<MappingSession[]>([]);
   const [stats, setStats] = useState<NetworkStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on route change or resize
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) closeMobileMenu();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [closeMobileMenu]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,6 +84,11 @@ function HomeContent() {
     return () => clearInterval(interval);
   }, []);
 
+  const navigateTo = (path: string) => {
+    closeMobileMenu();
+    router.push(path);
+  };
+
   return (
     <div className="min-h-screen bg-black">
       {/* Hero Section */}
@@ -73,29 +106,103 @@ function HomeContent() {
 
         {/* Overlay Content */}
         <div className="relative z-10 h-full flex flex-col">
-          {/* Header */}
-          <div className="container mx-auto px-4 py-6">
+          {/* ===== RESPONSIVE HEADER ===== */}
+          <div className="container mx-auto px-4 py-4 md:py-6">
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold text-white">
+              {/* Logo */}
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
                 SAFETY<span className="text-orange-500">MAP</span>
               </h1>
-              <div className="flex gap-3">
+
+              {/* Desktop Navigation */}
+              <div className="hidden md:flex items-center gap-3">
                 <Button
                   variant="outline"
                   onClick={() => router.push("/dashboard")}
-                  className="border-white/20 text-white hover:bg-white/10"
+                  className="bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white"
                 >
                   EXPLORE GRID
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => router.push("/recordings")}
-                  className="border-white/20 text-white hover:bg-white/10"
+                  className="bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white"
                 >
                   VIEW RECORDINGS
                 </Button>
                 <UserNav className="text-white" />
               </div>
+
+              {/* Mobile Hamburger Button */}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden relative z-50 p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
+                aria-label="Toggle navigation menu"
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-6 h-6" />
+                ) : (
+                  <Menu className="w-6 h-6" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* ===== MOBILE NAVIGATION DRAWER ===== */}
+          {/* Backdrop */}
+          <div
+            className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden ${
+              mobileMenuOpen
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }`}
+            onClick={closeMobileMenu}
+          />
+
+          {/* Drawer Panel */}
+          <div
+            className={`fixed top-0 right-0 h-full w-[280px] bg-zinc-900/95 backdrop-blur-xl z-40 transform transition-transform duration-300 ease-out md:hidden border-l border-white/10 ${
+              mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <div className="flex flex-col h-full pt-20 px-6 pb-8">
+              {/* Nav Links */}
+              <nav className="flex flex-col gap-2">
+                <button
+                  onClick={() => navigateTo("/dashboard")}
+                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 text-left"
+                >
+                  <LayoutGrid className="w-5 h-5 text-orange-500" />
+                  <span className="font-medium">Explore Grid</span>
+                </button>
+                <button
+                  onClick={() => navigateTo("/recordings")}
+                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 text-left"
+                >
+                  <Film className="w-5 h-5 text-orange-500" />
+                  <span className="font-medium">View Recordings</span>
+                </button>
+              </nav>
+
+              {/* Divider */}
+              <div className="my-6 border-t border-white/10" />
+
+              {/* User Nav */}
+              <div className="px-1">
+                <UserNav className="text-white" />
+              </div>
+
+              {/* Spacer */}
+              <div className="flex-1" />
+
+              {/* Bottom CTA */}
+              <Button
+                size="lg"
+                onClick={() => navigateTo("/onboarding")}
+                className="bg-orange-500 hover:bg-orange-600 font-bold w-full h-12"
+              >
+                BECOME A MAPPER
+              </Button>
             </div>
           </div>
 
@@ -103,19 +210,19 @@ function HomeContent() {
           <div className="flex-1 flex items-center">
             <div className="container mx-auto px-4">
               <div className="max-w-3xl">
-                <h2 className="text-6xl font-bold text-white mb-6">
+                <h2 className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-4 md:mb-6">
                   POWER THE <span className="text-orange-500">SAFETY MAP.</span>
                 </h2>
-                <p className="text-xl text-white/80 mb-8 max-w-2xl">
+                <p className="text-base sm:text-lg md:text-xl text-white/80 mb-6 md:mb-8 max-w-2xl">
                   Lagos streets move fast. Provide the live data the network needs to
                   navigate safely. Mount your device, map your route, and monetize
                   your movement.
                 </p>
-                <div className="flex gap-4 flex-wrap">
+                <div className="flex gap-3 md:gap-4 flex-wrap">
                   <Button
                     size="lg"
                     onClick={() => router.push("/onboarding")}
-                    className="bg-orange-500 hover:bg-orange-600 text-lg h-14 px-8"
+                    className="bg-orange-500 hover:bg-orange-600 text-base md:text-lg h-12 md:h-14 px-6 md:px-8"
                   >
                     BECOME A MAPPER
                   </Button>
@@ -123,7 +230,7 @@ function HomeContent() {
                     size="lg"
                     variant="outline"
                     onClick={() => router.push("/dashboard")}
-                    className="border-white/20 text-white hover:bg-white/10 text-lg h-14 px-8"
+                    className="bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white text-base md:text-lg h-12 md:h-14 px-6 md:px-8"
                   >
                     VIEW MAPPER GRID
                   </Button>
@@ -131,7 +238,7 @@ function HomeContent() {
                     size="lg"
                     variant="outline"
                     onClick={() => router.push("/recordings")}
-                    className="border-white/20 text-white hover:bg-white/10 text-lg h-14 px-8"
+                    className="hidden sm:inline-flex bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white text-base md:text-lg h-12 md:h-14 px-6 md:px-8"
                   >
                     VIEW RECORDINGS
                   </Button>
@@ -141,44 +248,44 @@ function HomeContent() {
           </div>
 
           {/* Stats Bar */}
-          <div className="container mx-auto px-4 pb-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="p-4 bg-black/60 backdrop-blur border-white/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-5 h-5 text-orange-500" />
-                  <span className="text-xs text-white/60">MAPPERS</span>
+          <div className="container mx-auto px-4 pb-6 md:pb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <Card className="p-3 md:p-4 bg-black/60 backdrop-blur border-white/10">
+                <div className="flex items-center gap-2 mb-1 md:mb-2">
+                  <Users className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
+                  <span className="text-[10px] md:text-xs text-white/60">MAPPERS</span>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl md:text-3xl font-bold text-white">
                   {stats?.totalMappers.toLocaleString() || 0}
                 </div>
               </Card>
 
-              <Card className="p-4 bg-black/60 backdrop-blur border-white/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <MapPin className="w-5 h-5 text-orange-500" />
-                  <span className="text-xs text-white/60">KM MAPPED</span>
+              <Card className="p-3 md:p-4 bg-black/60 backdrop-blur border-white/10">
+                <div className="flex items-center gap-2 mb-1 md:mb-2">
+                  <MapPin className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
+                  <span className="text-[10px] md:text-xs text-white/60">KM MAPPED</span>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl md:text-3xl font-bold text-white">
                   {(stats?.totalDistance || 0).toFixed(1)}K
                 </div>
               </Card>
 
-              <Card className="p-4 bg-black/60 backdrop-blur border-white/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <Coins className="w-5 h-5 text-orange-500" />
-                  <span className="text-xs text-white/60">TOTAL PAID</span>
+              <Card className="p-3 md:p-4 bg-black/60 backdrop-blur border-white/10">
+                <div className="flex items-center gap-2 mb-1 md:mb-2">
+                  <Coins className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
+                  <span className="text-[10px] md:text-xs text-white/60">TOTAL PAID</span>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl md:text-3xl font-bold text-white">
                   ₦{((stats?.totalPaid || 0) / 1000).toFixed(0)}K
                 </div>
               </Card>
 
-              <Card className="p-4 bg-black/60 backdrop-blur border-white/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-5 h-5 text-orange-500" />
-                  <span className="text-xs text-white/60">CONFIDENCE</span>
+              <Card className="p-3 md:p-4 bg-black/60 backdrop-blur border-white/10">
+                <div className="flex items-center gap-2 mb-1 md:mb-2">
+                  <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-orange-500" />
+                  <span className="text-[10px] md:text-xs text-white/60">CONFIDENCE</span>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl md:text-3xl font-bold text-white">
                   {(stats?.gridConfidence || 0).toFixed(1)}%
                 </div>
               </Card>
@@ -188,46 +295,46 @@ function HomeContent() {
       </div>
 
       {/* Visual Proof Section */}
-      <div className="bg-gradient-to-b from-black to-zinc-900 py-20">
+      <div className="bg-gradient-to-b from-black to-zinc-900 py-12 md:py-20">
         <div className="container mx-auto px-4">
-          <div className="mb-12 text-center">
-            <span className="text-orange-500 font-medium">
+          <div className="mb-8 md:mb-12 text-center">
+            <span className="text-orange-500 font-medium text-sm md:text-base">
               ← MAPPER ONBOARDING OPS — BATCH 6
             </span>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center max-w-6xl mx-auto">
             <div>
-              <div className="mb-8">
+              <div className="mb-6 md:mb-8">
                 <span className="text-orange-500 font-medium text-sm">
                   VISUAL DATA PROOF
                 </span>
-                <h2 className="text-5xl font-bold text-white mt-4 mb-6">
+                <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mt-3 md:mt-4 mb-4 md:mb-6">
                   MAPPING SAFETY
                   <br />
                   THROUGH <span className="text-orange-500">YOUR LENS.</span>
                 </h2>
-                <p className="text-white/70 text-lg">
+                <p className="text-white/70 text-base md:text-lg">
                   As a <span className="font-bold text-white">Safety Mapper</span>, you are not just a driver; you are a mobile sensor.
                   Our network relies on your live camera feed to verify road conditions
                   and security nodes.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <Card className="p-6 bg-zinc-800 border-zinc-700">
-                  <Video className="w-10 h-10 text-orange-500 mb-4" />
-                  <h3 className="font-bold text-white mb-2">Video Verification</h3>
-                  <p className="text-sm text-white/60">
+              <div className="grid grid-cols-2 gap-4 md:gap-6">
+                <Card className="p-4 md:p-6 bg-zinc-800 border-zinc-700">
+                  <Video className="w-8 h-8 md:w-10 md:h-10 text-orange-500 mb-3 md:mb-4" />
+                  <h3 className="font-bold text-white mb-2 text-sm md:text-base">Video Verification</h3>
+                  <p className="text-xs md:text-sm text-white/60">
                     Provide video footage of security checkpoints to enhance team
                     visibility and reaction beam.
                   </p>
                 </Card>
 
-                <Card className="p-6 bg-zinc-800 border-zinc-700">
-                  <Shield className="w-10 h-10 text-orange-500 mb-4" />
-                  <h3 className="font-bold text-white mb-2">Grid Sync</h3>
-                  <p className="text-sm text-white/60">
+                <Card className="p-4 md:p-6 bg-zinc-800 border-zinc-700">
+                  <Shield className="w-8 h-8 md:w-10 md:h-10 text-orange-500 mb-3 md:mb-4" />
+                  <h3 className="font-bold text-white mb-2 text-sm md:text-base">Grid Sync</h3>
+                  <p className="text-xs md:text-sm text-white/60">
                     Your data shows the network to predict and avoid high-risk traffic
                     zones.
                   </p>
@@ -259,63 +366,63 @@ function HomeContent() {
       </div>
 
       {/* How to Map Section */}
-      <div className="bg-zinc-900 py-20">
+      <div className="bg-zinc-900 py-12 md:py-20">
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-bold text-white text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-white text-center mb-10 md:mb-16">
             HOW TO <span className="text-orange-500">MAP.</span>
           </h2>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            <Card className="p-8 bg-zinc-800 border-zinc-700 text-center">
-              <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-6">
-                <Smartphone className="w-8 h-8 text-orange-500" />
+          <div className="grid md:grid-cols-3 gap-6 md:gap-8 max-w-5xl mx-auto">
+            <Card className="p-6 md:p-8 bg-zinc-800 border-zinc-700 text-center">
+              <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4 md:mb-6">
+                <Smartphone className="w-7 h-7 md:w-8 md:h-8 text-orange-500" />
               </div>
-              <div className="text-6xl font-bold text-white/10 mb-4">01</div>
-              <h3 className="text-2xl font-bold text-white mb-4">
+              <div className="text-5xl md:text-6xl font-bold text-white/10 mb-3 md:mb-4">01</div>
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">
                 Mount & Calibrate
               </h3>
-              <p className="text-white/60">
+              <p className="text-white/60 text-sm md:text-base">
                 Secure your smartphone using a standard handlebar mount. Ensure the
                 camera has a clear view of the road ahead. Our app will auto-calibrate
                 the horizon for optimal mapping precision.
               </p>
             </Card>
 
-            <Card className="p-8 bg-zinc-800 border-zinc-700 text-center">
-              <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-6">
-                <Radio className="w-8 h-8 text-orange-500" />
+            <Card className="p-6 md:p-8 bg-zinc-800 border-zinc-700 text-center">
+              <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4 md:mb-6">
+                <Radio className="w-7 h-7 md:w-8 md:h-8 text-orange-500" />
               </div>
-              <div className="text-6xl font-bold text-white/10 mb-4">02</div>
-              <h3 className="text-2xl font-bold text-white mb-4">
+              <div className="text-5xl md:text-6xl font-bold text-white/10 mb-3 md:mb-4">02</div>
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">
                 Activate Live Map
               </h3>
-              <p className="text-white/60">
+              <p className="text-white/60 text-sm md:text-base">
                 Open the Safety Map app and tap "GO LIVE". Your phone becomes an
                 active node, streaming low-latency video and telemetry to our central
                 grid.
               </p>
             </Card>
 
-            <Card className="p-8 bg-zinc-800 border-zinc-700 text-center">
-              <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-6">
-                <Wallet className="w-8 h-8 text-orange-500" />
+            <Card className="p-6 md:p-8 bg-zinc-800 border-zinc-700 text-center">
+              <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-orange-500/10 flex items-center justify-center mx-auto mb-4 md:mb-6">
+                <Wallet className="w-7 h-7 md:w-8 md:h-8 text-orange-500" />
               </div>
-              <div className="text-6xl font-bold text-white/10 mb-4">03</div>
-              <h3 className="text-2xl font-bold text-white mb-4">
+              <div className="text-5xl md:text-6xl font-bold text-white/10 mb-3 md:mb-4">03</div>
+              <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">
                 Map & Withdraw
               </h3>
-              <p className="text-white/60">
-                Tokens accumulate in real-time as you ride. Map 'Blind Spots' for
+              <p className="text-white/60 text-sm md:text-base">
+                Tokens accumulate in real-time as you ride. Map &apos;Blind Spots&apos; for
                 massive multipliers. Cash out anytime to your bank account.
               </p>
             </Card>
           </div>
 
-          <div className="text-center mt-12">
+          <div className="text-center mt-10 md:mt-12">
             <Button
               size="lg"
               onClick={() => router.push("/onboarding")}
-              className="bg-orange-500 hover:bg-orange-600 text-lg h-14 px-8"
+              className="bg-orange-500 hover:bg-orange-600 text-base md:text-lg h-12 md:h-14 px-6 md:px-8"
             >
               START MAPPING NOW <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
@@ -324,16 +431,16 @@ function HomeContent() {
       </div>
 
       {/* Footer CTA */}
-      <div className="bg-black py-16">
+      <div className="bg-black py-12 md:py-16">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 md:mb-6">
             Ready to power the Safety Map?
           </h2>
-          <p className="text-white/60 mb-8 max-w-2xl mx-auto">
+          <p className="text-white/60 mb-6 md:mb-8 max-w-2xl mx-auto text-sm md:text-base">
             Join thousands of mappers across Lagos earning tokens while making the
             streets safer. Download the app and start mapping today.
           </p>
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-3 md:gap-4 justify-center flex-wrap">
             <Button
               size="lg"
               onClick={() => router.push("/onboarding")}
@@ -345,7 +452,7 @@ function HomeContent() {
               size="lg"
               variant="outline"
               onClick={() => router.push("/dashboard")}
-              className="border-white/20 text-white hover:bg-white/10"
+              className="bg-transparent border-white/20 text-white hover:bg-white/10 hover:text-white"
             >
               VIEW MAPPER GRID
             </Button>

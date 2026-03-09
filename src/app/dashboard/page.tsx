@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,11 @@ import {
   Siren,
   Construction,
   Car,
+  Menu,
+  X,
+  LayoutGrid,
+  Film,
+  Camera,
 } from "lucide-react";
 import { getAllMappers, getAllSessions } from "@/lib/storage";
 import { MapEvent } from "@/types/mapper";
@@ -41,6 +46,35 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<NetworkStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDemo, setIsLoadingDemo] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on route change or resize
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) closeMobileMenu();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [closeMobileMenu]);
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
+  const navigateTo = (path: string) => {
+    closeMobileMenu();
+    router.push(path);
+  };
 
 
   const fetchData = async () => {
@@ -146,21 +180,21 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 h-14 md:h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-xl md:text-2xl font-bold">
               <Link href="/">SAFETY<span className="text-orange-500">MAP</span></Link>
             </h1>
-            <span className="text-sm text-muted-foreground">
-              REAL-TIME NETWORK
-            </span>
           </div>
-          <div className="flex items-center gap-3">
+          
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={fetchData}
               disabled={isLoading}
+              title="Refresh Data"
             >
               <RefreshCw
                 className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
@@ -175,86 +209,117 @@ export default function DashboardPage() {
             {currentMapperId && (
               <Button
                 onClick={() => router.push("/live-map")}
-                className="bg-orange-500 hover:bg-orange-600"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
                 REPORT EVENT
               </Button>
             )}
             <UserNav />
           </div>
+
+          {/* Mobile Navigation Controls */}
+          <div className="flex md:hidden items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={fetchData}
+              disabled={isLoading}
+              className="h-9 w-9"
+            >
+              <RefreshCw
+                className={`w-4 h-4 text-foreground ${isLoading ? "animate-spin" : ""}`}
+              />
+            </Button>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="relative z-50 p-2 rounded-lg text-foreground hover:bg-accent transition-colors"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ===== MOBILE NAVIGATION DRAWER ===== */}
+      <div
+        className={`fixed inset-0 bg-background/80 backdrop-blur-sm z-40 transition-opacity duration-300 md:hidden ${
+          mobileMenuOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
+        }`}
+        onClick={closeMobileMenu}
+      />
+
+      <div
+        className={`fixed top-0 right-0 h-full w-[280px] bg-card z-40 transform transition-transform duration-300 ease-out md:hidden border-l shadow-xl ${
+          mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex flex-col h-full pt-20 px-6 pb-8">
+          {/* Nav Links */}
+          <nav className="flex flex-col gap-2">
+            <button
+              onClick={() => navigateTo("/dashboard")}
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-accent transition-all duration-200 text-left"
+            >
+              <LayoutGrid className="w-5 h-5 text-orange-500" />
+              <span className="font-medium">Explore Grid</span>
+            </button>
+            <button
+              onClick={() => navigateTo("/recordings")}
+              className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-accent transition-all duration-200 text-left"
+            >
+              <Film className="w-5 h-5 text-orange-500" />
+              <span className="font-medium">View Recordings</span>
+            </button>
+            {currentMapperId && (
+              <button
+                onClick={() => navigateTo("/live-map")}
+                className="flex items-center gap-3 px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-accent transition-all duration-200 text-left"
+              >
+                <Camera className="w-5 h-5 text-orange-500" />
+                <span className="font-medium">Report Event</span>
+              </button>
+            )}
+          </nav>
+
+          {/* Divider */}
+          <div className="my-6 border-t" />
+
+          {/* User Nav */}
+          <div className="px-1">
+            <UserNav />
+          </div>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+          
+          {/* Bottom CTA */}
+          {!currentMapperId && (
+            <Button
+              size="lg"
+              onClick={() => navigateTo("/onboarding")}
+              className="bg-orange-500 hover:bg-orange-600 font-bold w-full h-12 text-white"
+            >
+              BECOME A MAPPER
+            </Button>
+          )}
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-6">
-        {/* Network Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Users className="w-4 h-4 text-orange-500" />
-              <span className="text-xs text-muted-foreground">MAPPERS</span>
-            </div>
-            <div className="text-2xl font-bold">
-              {stats?.totalMappers.toLocaleString() || 0}
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Radio className="w-4 h-4 text-green-500" />
-              <span className="text-xs text-muted-foreground">ACTIVE</span>
-            </div>
-            <div className="text-2xl font-bold text-green-500">
-              {stats?.activeMappers || 0}
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle className="w-4 h-4 text-blue-500" />
-              <span className="text-xs text-muted-foreground">STREAMS</span>
-            </div>
-            <div className="text-2xl font-bold">
-              {stats?.verifiedStreams || 0}
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Coins className="w-4 h-4 text-yellow-500" />
-              <span className="text-xs text-muted-foreground">TOTAL PAID</span>
-            </div>
-            <div className="text-2xl font-bold">
-              ₦{(stats?.totalPaid || 0).toLocaleString()}
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <MapPin className="w-4 h-4 text-purple-500" />
-              <span className="text-xs text-muted-foreground">KM MAPPED</span>
-            </div>
-            <div className="text-2xl font-bold">
-              {(stats?.totalDistance || 0).toFixed(1)}
-            </div>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-4 h-4 text-orange-500" />
-              <span className="text-xs text-muted-foreground">CONFIDENCE</span>
-            </div>
-            <div className="text-2xl font-bold">
-              {(stats?.gridConfidence || 0).toFixed(1)}%
-            </div>
-          </Card>
-        </div>
 
         {/* View Toggle */}
-        <div className="flex gap-2 mb-4 flex-wrap">
+        <div className="flex gap-2.5 mb-4 overflow-x-auto pb-3 snap-x touch-pan-x scrollbar-none w-[calc(100vw-32px)] md:w-full" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <Button
             variant={view === "map" ? "default" : "outline"}
             onClick={() => setView("map")}
-            className={view === "map" ? "bg-orange-500 hover:bg-orange-600" : ""}
+            className={`shrink-0 snap-start ${view === "map" ? "bg-orange-500 hover:bg-orange-600 text-white" : ""}`}
           >
             MAP VIEW
           </Button>
@@ -267,7 +332,7 @@ export default function DashboardPage() {
                 eventFeedRef.current?.scrollIntoView({ behavior: "smooth" });
               }, 100);
             }}
-            className={view === "events" ? "bg-orange-500 hover:bg-orange-600" : ""}
+            className={`shrink-0 snap-start ${view === "events" ? "bg-orange-500 hover:bg-orange-600 text-white" : ""}`}
           >
             RECENT EVENTS
           </Button>
@@ -275,21 +340,21 @@ export default function DashboardPage() {
           <Button
             variant={view === "mappers" ? "default" : "outline"}
             onClick={() => setView("mappers")}
-            className={
-              view === "mappers" ? "bg-orange-500 hover:bg-orange-600" : ""
-            }
+            className={`shrink-0 snap-start ${
+              view === "mappers" ? "bg-orange-500 hover:bg-orange-600 text-white" : ""
+            }`}
           >
             MAPPERS LIST
           </Button>
           
           {view === "map" && (
             <>
-              <div className="w-px h-8 bg-border" />
+              <div className="w-px h-8 bg-border shrink-0 hidden sm:block mx-1" />
               <Button
                 variant={mapView === "live" ? "default" : "outline"}
                 onClick={() => setMapView("live")}
                 size="sm"
-                className={mapView === "live" ? "bg-green-500 hover:bg-green-600" : ""}
+                className={`shrink-0 snap-start h-9 ${mapView === "live" ? "bg-green-500 hover:bg-green-600 text-white border-transparent" : "border-gray-500/30"}`}
               >
                 Live Only ({sessions.length})
               </Button>
@@ -297,7 +362,7 @@ export default function DashboardPage() {
                 variant={mapView === "all" ? "default" : "outline"}
                 onClick={() => setMapView("all")}
                 size="sm"
-                className={mapView === "all" ? "bg-blue-500 hover:bg-blue-600" : ""}
+                className={`shrink-0 snap-start h-9 ${mapView === "all" ? "bg-blue-500 hover:bg-blue-600 text-white border-transparent" : "border-gray-500/30"}`}
               >
                 All Sessions ({allSessions.length})
               </Button>
@@ -553,6 +618,69 @@ export default function DashboardPage() {
             </Card>
           </div>
         )}
+
+        {/* Network Stats - Moved to Bottom */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4 mt-8 pb-8">
+          <Card className="p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-1 md:mb-2">
+              <Users className="w-4 h-4 text-orange-500 shrink-0" />
+              <span className="text-[10px] md:text-xs text-muted-foreground truncate">MAPPERS</span>
+            </div>
+            <div className="text-xl md:text-2xl font-bold truncate">
+              {stats?.totalMappers.toLocaleString() || 0}
+            </div>
+          </Card>
+
+          <Card className="p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-1 md:mb-2">
+              <Radio className="w-4 h-4 text-green-500 shrink-0" />
+              <span className="text-[10px] md:text-xs text-muted-foreground truncate">ACTIVE</span>
+            </div>
+            <div className="text-xl md:text-2xl font-bold text-green-500 truncate">
+              {stats?.activeMappers || 0}
+            </div>
+          </Card>
+
+          <Card className="p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-1 md:mb-2">
+              <CheckCircle className="w-4 h-4 text-blue-500 shrink-0" />
+              <span className="text-[10px] md:text-xs text-muted-foreground truncate">STREAMS</span>
+            </div>
+            <div className="text-xl md:text-2xl font-bold truncate">
+              {stats?.verifiedStreams || 0}
+            </div>
+          </Card>
+
+          <Card className="p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-1 md:mb-2">
+              <Coins className="w-4 h-4 text-yellow-500 shrink-0" />
+              <span className="text-[10px] md:text-xs text-muted-foreground truncate">TOTAL PAID</span>
+            </div>
+            <div className="text-xl md:text-2xl font-bold truncate">
+              ₦{(stats?.totalPaid || 0).toLocaleString()}
+            </div>
+          </Card>
+
+          <Card className="p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-1 md:mb-2">
+              <MapPin className="w-4 h-4 text-purple-500 shrink-0" />
+              <span className="text-[10px] md:text-xs text-muted-foreground truncate">KM MAPPED</span>
+            </div>
+            <div className="text-xl md:text-2xl font-bold truncate">
+              {(stats?.totalDistance || 0).toFixed(1)}
+            </div>
+          </Card>
+
+          <Card className="p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-1 md:mb-2">
+              <TrendingUp className="w-4 h-4 text-orange-500 shrink-0" />
+              <span className="text-[10px] md:text-xs text-muted-foreground truncate">CONFIDENCE</span>
+            </div>
+            <div className="text-xl md:text-2xl font-bold truncate">
+              {(stats?.gridConfidence || 0).toFixed(1)}%
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
