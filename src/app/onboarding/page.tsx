@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { VehicleType, OnboardingData } from "@/types/mapper";
 import { ArrowRight, CheckCircle2, MapPin, Smartphone, Wallet } from "lucide-react";
 import { saveMapper } from "@/lib/storage";
+import { UserNav } from "@/components/layout/user-nav";
 
 const VEHICLE_TYPES: { value: VehicleType; label: string }[] = [
   { value: "TAXI_MAX_RIDES", label: "Taxi (Max Rides)" },
@@ -53,6 +54,24 @@ export default function OnboardingPage() {
     agreedToTerms: false,
     password: "",
   });
+  const [currentMapperId, setCurrentMapperId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = localStorage.getItem("mapperId");
+    setCurrentMapperId(id);
+    
+    const handleStorage = () => {
+      setCurrentMapperId(localStorage.getItem("mapperId"));
+    };
+    
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("mapper-login", handleStorage);
+    
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("mapper-login", handleStorage);
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,12 +110,13 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-gradient-to-b from-background to-muted relative">
         {/* Navbar */}
         <div className="absolute top-0 left-0 w-full p-4 md:p-6 z-10">
-          <div className="container mx-auto">
+          <div className="container mx-auto flex items-center justify-between">
             <Link href="/" className="inline-block">
               <span className="text-2xl md:text-3xl font-bold">
                 SAFETY<span className="text-orange-500">MAP</span>
               </span>
             </Link>
+            {currentMapperId && <UserNav />}
           </div>
         </div>
 
@@ -112,12 +132,16 @@ export default function OnboardingPage() {
               your movement.
             </p>
             <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 justify-center">
-              <Button size="lg" onClick={() => setStep("form")} className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-base md:text-lg h-12 md:h-14 px-6 md:px-8">
-                BECOME A MAPPER
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => router.push("/login")} className="w-full sm:w-auto border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950 text-base md:text-lg h-12 md:h-14 px-6 md:px-8">
-                LOG IN
-              </Button>
+              {!currentMapperId && (
+                <>
+                  <Button size="lg" onClick={() => setStep("form")} className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-base md:text-lg h-12 md:h-14 px-6 md:px-8">
+                    BECOME A MAPPER
+                  </Button>
+                  <Button size="lg" variant="outline" onClick={() => router.push("/login")} className="w-full sm:w-auto border-orange-500 text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-950 text-base md:text-lg h-12 md:h-14 px-6 md:px-8">
+                    LOG IN
+                  </Button>
+                </>
+              )}
               <Button size="lg" variant="outline" onClick={() => router.push("/")} className="w-full sm:w-auto text-base md:text-lg h-12 md:h-14 px-6 md:px-8">
                 VIEW MAPPER GRID
               </Button>
@@ -171,9 +195,11 @@ export default function OnboardingPage() {
             </div>
 
             <div className="text-center mt-12">
-              <Button size="lg" onClick={() => setStep("form")} className="bg-orange-500 hover:bg-orange-600">
-                START MAPPING <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
+              {!currentMapperId && (
+                <Button size="lg" onClick={() => setStep("form")} className="bg-orange-500 hover:bg-orange-600">
+                  START MAPPING <ArrowRight className="ml-2 w-5 h-5" />
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -185,12 +211,13 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted flex items-center justify-center p-4 pt-20 relative">
       {/* Navbar */}
       <div className="absolute top-0 left-0 w-full p-4 md:p-6 z-10">
-        <div className="container mx-auto">
+        <div className="container mx-auto flex items-center justify-between">
           <Link href="/" className="inline-block">
             <span className="text-2xl md:text-3xl font-bold">
               SAFETY<span className="text-orange-500">MAP</span>
             </span>
           </Link>
+          {currentMapperId && <UserNav />}
         </div>
       </div>
       <Card className="max-w-lg w-full p-8">
